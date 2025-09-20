@@ -37,17 +37,6 @@ export default function CompanionPlantCards({ groups }: CompanionPlantCardsProps
               </div>
             </div>
             
-            <div>
-              <h5 className="text-sm font-medium text-gray-800 mb-2">Ecological benefits:</h5>
-              <ul className="text-xs text-gray-600 space-y-1">
-                {group.ecologicalBenefits.map((benefit, benefitIndex) => (
-                  <li key={benefitIndex} className="flex items-start">
-                    <span className="text-green-500 mr-2">•</span>
-                    {benefit}
-                  </li>
-                ))}
-              </ul>
-            </div>
           </div>
         ))}
       </div>
