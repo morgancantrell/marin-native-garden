@@ -48,6 +48,16 @@ const monthNames = [
   "July", "August", "September", "October", "November", "December"
 ];
 
+// Function to convert wildlife support score to plain English assessment
+const getWildlifeAssessment = (score: number): string => {
+  if (score >= 300) return "Keystone species";
+  if (score >= 200) return "Major wildlife tree";
+  if (score >= 120) return "Good wildlife plant";
+  if (score >= 80) return "Moderate wildlife support";
+  if (score >= 40) return "Some wildlife support";
+  return "Limited wildlife support";
+};
+
 export default function Home() {
   const [address, setAddress] = useState("");
   const [email, setEmail] = useState("");
@@ -290,6 +300,7 @@ export default function Home() {
                         </div>
                         <div className="text-right text-sm text-gray-900">
                           <div className="font-medium">Wildlife Support Score: {plant.wildlifeSupportScore}</div>
+                          <div className="text-xs text-gray-600 italic">{getWildlifeAssessment(plant.wildlifeSupportScore)}</div>
                         </div>
                       </div>
                       

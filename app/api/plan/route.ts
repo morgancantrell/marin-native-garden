@@ -228,6 +228,16 @@ function determineWaterDistrict(city: string): string {
   return 'Marin Water';
 }
 
+// Function to convert wildlife support score to plain English assessment
+const getWildlifeAssessment = (score: number): string => {
+  if (score >= 300) return "Keystone species";
+  if (score >= 200) return "Major wildlife tree";
+  if (score >= 120) return "Good wildlife plant";
+  if (score >= 80) return "Moderate wildlife support";
+  if (score >= 40) return "Some wildlife support";
+  return "Limited wildlife support";
+};
+
 async function generatePdf(address: string, region: string, waterDistrict: string, plants: any[], rebates: any[]): Promise<Uint8Array> {
   const pdfDoc = await PDFDocument.create();
   const page = pdfDoc.addPage([612, 792]); // Letter size
@@ -366,6 +376,9 @@ async function generatePdf(address: string, region: string, waterDistrict: strin
     
     addText(`Size: ${plant.matureHeightFt}'H × ${plant.matureWidthFt}'W`, leftColumnX, yPosition, 11);
     addText(`Growth Rate: ${plant.growthRate}`, rightColumnX, yPosition, 11);
+    yPosition -= 18;
+    
+    addText(`Wildlife Support: ${plant.wildlifeSupportScore} (${getWildlifeAssessment(plant.wildlifeSupportScore)})`, leftColumnX, yPosition, 11);
     yPosition -= 18;
     
     addText(`Type: ${plant.evergreenDeciduous}`, leftColumnX, yPosition, 11);
