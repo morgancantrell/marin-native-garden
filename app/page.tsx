@@ -1,11 +1,10 @@
 "use client";
 import CompanionPlantCards from "@/app/components/CompanionPlantCards";
-import { getCompanionGroupsForRegion } from "@/lib/companion-plants";
+import { getCompanionGroupsForPlants } from "@/lib/companion-plants";
 
 import { useState } from "react";
 import GrowthVisualizer from "./components/GrowthVisualizer";
 import { SeasonalPhotos } from "./components/SeasonalPhotos";
-import GooglePlacesAutocomplete from "./components/GooglePlacesAutocomplete";
 
 interface Plant {
   scientificName: string;
@@ -328,7 +327,7 @@ export default function Home() {
 
                       {true && (
                         <div className="mt-4">
-                          <SeasonalPhotos photos={plant.seasonalPhotos} scientificName={plant.scientificName} />
+                          <SeasonalPhotos photos={plant.seasonalPhotos || []} scientificName={plant.scientificName} />
                         </div>
                       )}
                     </div>
@@ -337,7 +336,30 @@ export default function Home() {
               </div>
 
               {/* Companion Plant Communities */}
-              <CompanionPlantCards groups={getCompanionGroupsForPlants(result.plants)} />
+              {result.plants && result.plants.length > 0 && (
+                <div className="mt-8">
+                  <h3 className="text-xl md:text-2xl font-bold text-gray-900 mb-4">Companion Plant Communities</h3>
+                  <p className="text-gray-700 mb-4">
+                    These plants naturally grow together in Marin County, creating thriving ecosystems that support wildlife and require minimal maintenance.
+                  </p>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <CompanionPlantCards groups={getCompanionGroupsForPlants(result.plants.map(plant => ({
+                      commonName: plant.commonName,
+                      scientificName: plant.scientificName,
+                      matureSize: `${plant.matureHeightFt}'H × ${plant.matureWidthFt}'W`,
+                      growthRate: plant.growthRate,
+                      bloomColor: plant.flowerColors.join(", "),
+                      bloomSeason: plant.bloomMonths.map(m => monthNames[m - 1]).join(", "),
+                      evergreenDeciduous: plant.evergreenDeciduous,
+                      lifespan: `${plant.lifespanYears} years`,
+                      waterNeeds: "Moderate", // Default value since it's not in the Plant interface
+                      indigenousUses: plant.indigenousUses.join(", "),
+                      birds: plant.birds?.map(b => b.commonName),
+                      seasonalPhotos: plant.seasonalPhotos
+                    })))} />
+                  </div>
+                </div>
+              )}
 
               {result.rebates && result.rebates.length > 0 && (
                 <div className="mt-8">
