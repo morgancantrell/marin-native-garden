@@ -1,4 +1,6 @@
 "use client";
+import CompanionPlantCards from "@/app/components/CompanionPlantCards";
+import { getCompanionGroupsForRegion } from "@/lib/companion-plants";
 
 import { useState } from "react";
 import GrowthVisualizer from "./components/GrowthVisualizer";
@@ -333,6 +335,9 @@ export default function Home() {
                   ))}
                 </div>
               </div>
+
+              {/* Companion Plant Communities */}
+              <CompanionPlantCards groups={getCompanionGroupsForRegion(result.region)} />
 
               {result.rebates && result.rebates.length > 0 && (
                 <div className="mt-8">

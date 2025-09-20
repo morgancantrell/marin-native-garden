@@ -1,4 +1,5 @@
 import { NextRequest } from "next/server";
+import { getCompanionGroupsForRegion } from "@/lib/companion-plants";
 import { PDFDocument, rgb, StandardFonts } from "pdf-lib";
 import { PrismaClient } from "@prisma/client";
 import { geocodeAddress } from "@/lib/geocode";
@@ -157,6 +158,24 @@ export async function POST(request: NextRequest) {
         addText(`Requirements: ${rebate.requirements}`, 12);
         addText(`Summary: ${rebate.summary}`, 12);
         addText("", 12);
+    }
+    
+    // Companion Plant Communities section
+    const companionGroups = getCompanionGroupsForRegion(region);
+    if (companionGroups.length > 0) {
+      addText("Companion Plant Communities", 18, true);
+      addText("", 12);
+      addText("These plants naturally grow together in Marin County, creating thriving ecosystems that support wildlife and require minimal maintenance.", 10);
+      addText("", 12);
+      
+      companionGroups.slice(0, 4).forEach((group, index) => {
+        addText(`${index + 1}. ${group.name}`, 14, true);
+        addText(group.description, 10);
+        addText(`Plants: ${group.plants.join(", ")}`, 10);
+        addText(`Benefits: ${group.ecologicalBenefits.join("; ")}`, 10);
+        addText("", 12);
+      });
+    }
       });
     }
     
