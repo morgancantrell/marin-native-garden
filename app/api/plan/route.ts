@@ -1,6 +1,4 @@
 import { NextRequest } from "next/server";
-import { PDFDocument, rgb, StandardFonts } from "pdf-lib";
-import { getCompanionGroupsForPlants } from "@/lib/companion-plants";
 import { geocodeAddress, determineRegionHeuristic, determineWaterDistrict } from "@/lib/geocode";
 import { getPlantsForRegion } from "@/lib/plants";
 import { getRebates } from "@/lib/rebates";
