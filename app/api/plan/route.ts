@@ -1,4 +1,5 @@
 import { NextRequest } from "next/server";
+import { PDFDocument, rgb, StandardFonts } from "pdf-lib";
 import { PrismaClient } from "@prisma/client";
 import { geocodeAddress } from "@/lib/geocode";
 import { fetchSeasonalPhotos } from "@/lib/inaturalist-photos";
@@ -85,6 +86,83 @@ export async function POST(request: NextRequest) {
     // Get rebates for the water district
     const rebates = getRebates(waterDistrict);
 
+    // Generate PDF
+    const pdfDoc = await PDFDocument.create();
+    const font = await pdfDoc.embedFont(StandardFonts.Helvetica);
+    const boldFont = await pdfDoc.embedFont(StandardFonts.HelveticaBold);
+    
+    let page = pdfDoc.addPage([612, 792]); // Letter size
+    let yPosition = 750;
+    const pageHeight = 792;
+    const margin = 50;
+    const lineHeight = 20;
+    
+    // Helper function to add text with word wrapping
+    const addText = (text: string, fontSize: number = 12, isBold: boolean = false) => {
+      if (!text || text === undefined) {
+        text = "";
+      }
+      const currentFont = isBold ? boldFont : font;
+      const textWidth = currentFont.widthOfTextAtSize(text, fontSize);
+      
+      if (yPosition - fontSize < margin) {
+        page = pdfDoc.addPage([612, 792]);
+        yPosition = 750;
+      }
+      
+      page.drawText(text, {
+        x: margin,
+        y: yPosition,
+        size: fontSize,
+        font: currentFont,
+        color: rgb(0, 0, 0),
+      });
+      
+      yPosition -= fontSize + 5;
+    };
+    
+    // Title
+    addText("Marin Native Garden Plan", 24, true);
+    addText(`Address: ${address}`, 14, true);
+    addText(`Plant Community: ${region}`, 14);
+    addText(`Water District: ${waterDistrict}`, 14);
+    addText("", 12);
+    
+    // Plants section
+    addText("Recommended Native Plants", 18, true);
+    addText("", 12);
+    
+    plantsWithPhotos.forEach((plant, index) => {
+      addText(`${index + 1}. ${plant.commonName} (${plant.scientificName})`, 14, true);
+      addText(`Mature Size: ${plant.matureSize}`, 12);
+      addText(`Growth Rate: ${plant.growthRate}`, 12);
+      addText(`Bloom: ${plant.bloomColor} in ${plant.bloomSeason}`, 12);
+      addText(`Type: ${plant.evergreenDeciduous}`, 12);
+      addText(`Lifespan: ${plant.lifespan}`, 12);
+      addText(`Water Needs: ${plant.waterNeeds}`, 12);
+      addText(`Indigenous Uses: ${plant.indigenousUses}`, 12);
+      if (plant.birds && plant.birds.length > 0) {
+        addText(`Attracts Birds: ${plant.birds.join(", ")}`, 12);
+      }
+      addText("", 12);
+    });
+    
+    // Rebates section
+    if (rebates.length > 0) {
+      addText("Available Rebates", 18, true);
+      addText("", 12);
+      rebates.forEach(rebate => {
+        addText(rebate.name, 14, true);
+        addText(`Amount: ${rebate.amount}`, 12);
+        addText(`Requirements: ${rebate.requirements}`, 12);
+        addText(`Summary: ${rebate.summary}`, 12);
+        addText("", 12);
+      });
+    }
+    
+    const pdfBytes = await pdfDoc.save();
+    const pdfBase64 = Buffer.from(pdfBytes).toString("base64");
+
     // Send email with PDF attachment
     let emailStatus = "not attempted";
     let emailError = "";
@@ -95,7 +173,7 @@ export async function POST(request: NextRequest) {
       
       if (resendApiKey && mailFrom) {
         const emailData = {
-          from: mailFrom,
+          from: "Marin Native Garden <" + mailFrom + ">",
           to: [email],
           subject: `Your Marin Native Garden Plan - ${address}`,
           html: `
@@ -112,8 +190,16 @@ export async function POST(request: NextRequest) {
               <li>Indigenous uses and wildlife benefits</li>
               <li>Available rebate programs</li>
             </ul>
+            <p>Please see the attached PDF for your complete garden plan.</p>
             <p>Happy gardening!</p>
-          `
+          `,
+          attachments: [
+            {
+              filename: `marin-garden-plan-${address.replace(/[^a-zA-Z0-9]/g, "-")}.pdf`,
+              content: pdfBase64,
+              type: "application/pdf"
+            }
+          ]
         };
 
         // Simple fetch request to Resend API
