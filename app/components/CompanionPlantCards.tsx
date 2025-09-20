@@ -12,7 +12,7 @@ export default function CompanionPlantCards({ groups }: CompanionPlantCardsProps
 
   return (
     <div className="mt-8">
-      <h3 className="text-xl font-bold text-gray-900 mb-4">Companion Plant Communities</h3>
+      <h3 className="text-xl font-bold text-gray-900 mb-4">Companion Plant Groups</h3>
       <p className="text-sm text-gray-600 mb-6">
         These plants naturally grow together in Marin County, creating thriving ecosystems that support wildlife and require minimal maintenance.
       </p>
@@ -24,7 +24,7 @@ export default function CompanionPlantCards({ groups }: CompanionPlantCardsProps
             <p className="text-sm text-gray-700 mb-4">{group.description}</p>
             
             <div className="mb-4">
-              <h5 className="text-sm font-medium text-gray-800 mb-2">Plants in this community:</h5>
+              <h5 className="text-sm font-medium text-gray-800 mb-2">Plants in this group:</h5>
               <div className="flex flex-wrap gap-2">
                 {group.plants.map((plant, plantIndex) => (
                   <span 
@@ -53,10 +53,10 @@ export default function CompanionPlantCards({ groups }: CompanionPlantCardsProps
       </div>
       
       <div className="mt-6 p-4 bg-blue-50 rounded-lg border border-blue-200">
-        <h4 className="text-sm font-semibold text-blue-900 mb-2">Why Plant Communities Matter</h4>
+        <h4 className="text-sm font-semibold text-blue-900 mb-2">Why Plant Groups Matter</h4>
         <p className="text-xs text-blue-800">
           Native plants have co-evolved over millennia with specific soil fungi, insects, and other plants. 
-          By planting them in natural communities, you create cooperative networks that reduce stress, 
+          By planting them in natural groups, you create cooperative networks that reduce stress, 
           attract beneficial wildlife, improve soil health, and minimize the need for water and maintenance.
         </p>
       </div>

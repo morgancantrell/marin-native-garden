@@ -236,82 +236,188 @@ async function generatePdf(address: string, region: string, waterDistrict: strin
   const font = await pdfDoc.embedFont(StandardFonts.Helvetica);
   const boldFont = await pdfDoc.embedFont(StandardFonts.HelveticaBold);
   
+  let currentPage = page;
   let yPosition = height - 50;
   
-  // Helper function to add text
-  const addText = (text: string, x: number, y: number, fontSize: number = 12, isBold: boolean = false) => {
+  // Helper function to add text with proper spacing
+  const addText = (text: string, x: number, y: number, fontSize: number = 12, isBold: boolean = false, color: any = rgb(0, 0, 0)) => {
     const currentFont = isBold ? boldFont : font;
-    page.drawText(String(text || ''), {
+    currentPage.drawText(String(text || ''), {
       x,
       y,
       size: fontSize,
       font: currentFont,
-      color: rgb(0, 0, 0),
+      color,
     });
   };
   
-  // Title
-  addText('Marin Native Garden Plan', 50, yPosition, 24, true);
-  yPosition -= 40;
-  
-  // Address and region info
-  addText(`Address: ${address}`, 50, yPosition, 14, true);
-  yPosition -= 25;
-  addText(`Plant Community: ${region}`, 50, yPosition, 12);
-  yPosition -= 20;
-  addText(`Water District: ${waterDistrict}`, 50, yPosition, 12);
-  yPosition -= 40;
-  
-  // Plants section
-  addText('Recommended Native Plants', 50, yPosition, 18, true);
-  yPosition -= 30;
-  
-  plants.forEach((plant, index) => {
-    if (yPosition < 100) {
-      // Add new page if needed
-      const newPage = pdfDoc.addPage([612, 792]);
-      yPosition = newPage.getSize().height - 50;
+  // Helper function to add a new page if needed
+  const checkNewPage = (requiredSpace: number = 50) => {
+    if (yPosition < requiredSpace) {
+      currentPage = pdfDoc.addPage([612, 792]);
+      yPosition = currentPage.getSize().height - 50;
+      return true;
     }
-    
-    addText(`${index + 1}. ${plant.commonName} (${plant.scientificName})`, 50, yPosition, 14, true);
-    yPosition -= 20;
-    addText(`Size: ${plant.matureHeightFt}'H × ${plant.matureWidthFt}'W`, 70, yPosition, 10);
-    yPosition -= 15;
-    addText(`Growth Rate: ${plant.growthRate}`, 70, yPosition, 10);
-    yPosition -= 15;
-    addText(`Type: ${plant.evergreenDeciduous}`, 70, yPosition, 10);
-    yPosition -= 15;
-    addText(`Flower Colors: ${plant.flowerColors.join(', ')}`, 70, yPosition, 10);
-    yPosition -= 15;
-    addText(`Bloom Season: ${plant.bloomMonths.map((m: number) => ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'][m-1]).join(', ')}`, 70, yPosition, 10);
-    yPosition -= 15;
-    addText(`Indigenous Uses: ${plant.indigenousUses.join(', ')}`, 70, yPosition, 10);
-    yPosition -= 15;
-    if (plant.birds && plant.birds.length > 0) {
-      addText(`Birds: ${plant.birds.map((b: any) => b.commonName).join(', ')}`, 70, yPosition, 10);
-      yPosition -= 15;
-    }
-    yPosition -= 20;
-  });
+    return false;
+  };
   
-  // Rebates section
-  if (rebates && rebates.length > 0) {
-    yPosition -= 20;
-    addText('Available Rebates', 50, yPosition, 18, true);
-    yPosition -= 30;
+  // Helper function to add plant photos
+  const addPlantPhotos = async (plant: any, startY: number) => {
+    if (!plant.seasonalPhotos || plant.seasonalPhotos.length === 0) return startY;
     
-    rebates.forEach((rebate) => {
-      if (yPosition < 100) {
-        const newPage = pdfDoc.addPage([612, 792]);
-        yPosition = newPage.getSize().height - 50;
+    const photoSize = 60;
+    const photosPerRow = 4;
+    const photoSpacing = 10;
+    const totalWidth = (photoSize * photosPerRow) + (photoSpacing * (photosPerRow - 1));
+    const startX = (width - totalWidth) / 2;
+    
+    let photoY = startY;
+    let photoIndex = 0;
+    
+    // Add photos in rows
+    for (let row = 0; row < Math.ceil(plant.seasonalPhotos.length / photosPerRow); row++) {
+      if (checkNewPage(photoSize + 30)) {
+        photoY = yPosition;
       }
       
-      addText(rebate.title, 50, yPosition, 14, true);
-      yPosition -= 20;
-      addText(`Amount: ${rebate.amount}`, 70, yPosition, 12);
-      yPosition -= 15;
-      addText(`Requirements: ${rebate.requirements}`, 70, yPosition, 10);
-      yPosition -= 25;
+      for (let col = 0; col < photosPerRow && photoIndex < plant.seasonalPhotos.length; col++) {
+        const photo = plant.seasonalPhotos[photoIndex];
+        const photoX = startX + (col * (photoSize + photoSpacing));
+        
+        try {
+          // Fetch and embed photo
+          const photoResponse = await fetch(photo.url);
+          const photoBytes = await photoResponse.arrayBuffer();
+          const photoImage = await pdfDoc.embedPng(photoBytes);
+          
+          // Draw photo
+          currentPage.drawImage(photoImage, {
+            x: photoX,
+            y: photoY - photoSize,
+            width: photoSize,
+            height: photoSize,
+          });
+          
+          // Add season label
+          addText(photo.season.charAt(0).toUpperCase() + photo.season.slice(1), 
+            photoX + photoSize/2 - 10, photoY - photoSize - 15, 8, false, rgb(0.3, 0.3, 0.3));
+          
+        } catch (error) {
+          console.log(`Failed to load photo for ${plant.commonName}:`, error);
+        }
+        
+        photoIndex++;
+      }
+      
+      photoY -= photoSize + 40; // Move to next row
+    }
+    
+    return photoY;
+  };
+  
+  // Title with modern styling
+  addText('Marin Native Garden Plan', 50, yPosition, 28, true, rgb(0.2, 0.4, 0.2));
+  yPosition -= 50;
+  
+  // Address and region info in a styled box
+  const infoBoxY = yPosition;
+  currentPage.drawRectangle({
+    x: 40,
+    y: infoBoxY - 80,
+    width: width - 80,
+    height: 80,
+    borderColor: rgb(0.8, 0.8, 0.8),
+    borderWidth: 1,
+    color: rgb(0.95, 0.95, 0.95),
+  });
+  
+  addText(`Address: ${address}`, 50, infoBoxY - 20, 14, true);
+  addText(`Plant Community: ${region}`, 50, infoBoxY - 40, 12);
+  addText(`Water District: ${waterDistrict}`, 50, infoBoxY - 60, 12);
+  yPosition = infoBoxY - 100;
+  
+  // Plants section with modern styling
+  addText('Recommended Native Plants', 50, yPosition, 20, true, rgb(0.2, 0.4, 0.2));
+  yPosition -= 40;
+  
+  for (let i = 0; i < plants.length; i++) {
+    const plant = plants[i];
+    
+    // Check if we need a new page
+    checkNewPage(200);
+    
+    // Plant header with background
+    const plantHeaderY = yPosition;
+    currentPage.drawRectangle({
+      x: 40,
+      y: plantHeaderY - 30,
+      width: width - 80,
+      height: 30,
+      color: rgb(0.9, 0.95, 0.9),
+    });
+    
+    addText(`${i + 1}. ${plant.commonName}`, 50, plantHeaderY - 20, 16, true);
+    addText(`(${plant.scientificName})`, 50, plantHeaderY - 35, 12, false, rgb(0.4, 0.4, 0.4));
+    yPosition = plantHeaderY - 50;
+    
+    // Plant details in two columns
+    const leftColumnX = 50;
+    const rightColumnX = width / 2 + 20;
+    
+    addText(`Size: ${plant.matureHeightFt}'H × ${plant.matureWidthFt}'W`, leftColumnX, yPosition, 11);
+    addText(`Growth Rate: ${plant.growthRate}`, rightColumnX, yPosition, 11);
+    yPosition -= 18;
+    
+    addText(`Type: ${plant.evergreenDeciduous}`, leftColumnX, yPosition, 11);
+    addText(`Lifespan: ${plant.lifespanYears} years`, rightColumnX, yPosition, 11);
+    yPosition -= 18;
+    
+    addText(`Flower Colors: ${plant.flowerColors.join(', ')}`, leftColumnX, yPosition, 11);
+    yPosition -= 18;
+    
+    addText(`Bloom Season: ${plant.bloomMonths.map((m: number) => ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'][m-1]).join(', ')}`, leftColumnX, yPosition, 11);
+    yPosition -= 18;
+    
+    addText(`Indigenous Uses: ${plant.indigenousUses.join(', ')}`, leftColumnX, yPosition, 11);
+    yPosition -= 18;
+    
+    if (plant.birds && plant.birds.length > 0) {
+      addText(`Birds: ${plant.birds.map((b: any) => b.commonName).join(', ')}`, leftColumnX, yPosition, 11);
+      yPosition -= 18;
+    }
+    
+    // Add plant photos
+    yPosition = await addPlantPhotos(plant, yPosition - 20);
+    yPosition -= 30; // Space between plants
+  }
+  
+  // Rebates section with modern styling
+  if (rebates && rebates.length > 0) {
+    checkNewPage(150);
+    
+    addText('Available Rebates', 50, yPosition, 20, true, rgb(0.2, 0.4, 0.2));
+    yPosition -= 40;
+    
+    rebates.forEach((rebate, index) => {
+      checkNewPage(100);
+      
+      // Rebate card styling
+      const rebateCardY = yPosition;
+      currentPage.drawRectangle({
+        x: 40,
+        y: rebateCardY - 80,
+        width: width - 80,
+        height: 80,
+        borderColor: rgb(0.8, 0.8, 0.8),
+        borderWidth: 1,
+        color: rgb(0.98, 0.98, 0.98),
+      });
+      
+      addText(rebate.title, 50, rebateCardY - 20, 14, true);
+      addText(`Amount: ${rebate.amount}`, 50, rebateCardY - 40, 12, false, rgb(0.2, 0.6, 0.2));
+      addText(`Requirements: ${rebate.requirements}`, 50, rebateCardY - 60, 10);
+      
+      yPosition = rebateCardY - 100;
     });
   }
   

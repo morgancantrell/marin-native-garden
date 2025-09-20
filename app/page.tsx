@@ -338,7 +338,7 @@ export default function Home() {
               {/* Companion Plant Communities */}
               {result.plants && result.plants.length > 0 && (
                 <div className="mt-8">
-                  <h3 className="text-xl md:text-2xl font-bold text-gray-900 mb-4">Companion Plant Communities</h3>
+                  <h3 className="text-xl md:text-2xl font-bold text-gray-900 mb-4">Companion Plant Groups</h3>
                   <p className="text-gray-700 mb-4">
                     These plants naturally grow together in Marin County, creating thriving ecosystems that support wildlife and require minimal maintenance.
                   </p>
