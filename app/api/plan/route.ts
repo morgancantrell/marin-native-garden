@@ -4,6 +4,7 @@ import { geocodeAddress } from "@/lib/geocode";
 import { fetchSeasonalPhotos } from "@/lib/inaturalist-photos";
 import { getPlantsForRegion } from "@/lib/plants";
 import { getRebates } from "@/lib/rebates";
+import { PDFDocument, rgb, StandardFonts } from 'pdf-lib';
 
 const prisma = new PrismaClient();
 
@@ -77,6 +78,10 @@ export async function POST(request: NextRequest) {
     // Get rebates for the water district
     const rebates = getRebates(waterDistrict);
 
+    // Generate PDF
+    const pdfBytes = await generatePdf(address, region, waterDistrict, plantsWithPhotos, rebates);
+    const pdfBase64 = Buffer.from(pdfBytes).toString('base64');
+
     // Send email with PDF attachment
     let emailStatus = "not attempted";
     let emailError = "";
@@ -106,7 +111,14 @@ export async function POST(request: NextRequest) {
             </ul>
             <p>Please see the attached PDF for your complete garden plan.</p>
             <p>Happy gardening!</p>
-          `
+          `,
+          attachments: [
+            {
+              filename: `marin-garden-plan-${address.replace(/[^a-zA-Z0-9]/g, "-")}.pdf`,
+              content: pdfBase64,
+              type: "application/pdf"
+            }
+          ]
         };
 
         // Simple fetch request to Resend API
@@ -214,4 +226,94 @@ function determineWaterDistrict(city: string): string {
   
   // Default to Marin Water
   return 'Marin Water';
+}
+
+async function generatePdf(address: string, region: string, waterDistrict: string, plants: any[], rebates: any[]): Promise<Uint8Array> {
+  const pdfDoc = await PDFDocument.create();
+  const page = pdfDoc.addPage([612, 792]); // Letter size
+  const { width, height } = page.getSize();
+  
+  const font = await pdfDoc.embedFont(StandardFonts.Helvetica);
+  const boldFont = await pdfDoc.embedFont(StandardFonts.HelveticaBold);
+  
+  let yPosition = height - 50;
+  
+  // Helper function to add text
+  const addText = (text: string, x: number, y: number, fontSize: number = 12, isBold: boolean = false) => {
+    const currentFont = isBold ? boldFont : font;
+    page.drawText(String(text || ''), {
+      x,
+      y,
+      size: fontSize,
+      font: currentFont,
+      color: rgb(0, 0, 0),
+    });
+  };
+  
+  // Title
+  addText('Marin Native Garden Plan', 50, yPosition, 24, true);
+  yPosition -= 40;
+  
+  // Address and region info
+  addText(`Address: ${address}`, 50, yPosition, 14, true);
+  yPosition -= 25;
+  addText(`Plant Community: ${region}`, 50, yPosition, 12);
+  yPosition -= 20;
+  addText(`Water District: ${waterDistrict}`, 50, yPosition, 12);
+  yPosition -= 40;
+  
+  // Plants section
+  addText('Recommended Native Plants', 50, yPosition, 18, true);
+  yPosition -= 30;
+  
+  plants.forEach((plant, index) => {
+    if (yPosition < 100) {
+      // Add new page if needed
+      const newPage = pdfDoc.addPage([612, 792]);
+      yPosition = newPage.getSize().height - 50;
+    }
+    
+    addText(`${index + 1}. ${plant.commonName} (${plant.scientificName})`, 50, yPosition, 14, true);
+    yPosition -= 20;
+    addText(`Size: ${plant.matureHeightFt}'H × ${plant.matureWidthFt}'W`, 70, yPosition, 10);
+    yPosition -= 15;
+    addText(`Growth Rate: ${plant.growthRate}`, 70, yPosition, 10);
+    yPosition -= 15;
+    addText(`Type: ${plant.evergreenDeciduous}`, 70, yPosition, 10);
+    yPosition -= 15;
+    addText(`Flower Colors: ${plant.flowerColors.join(', ')}`, 70, yPosition, 10);
+    yPosition -= 15;
+    addText(`Bloom Season: ${plant.bloomMonths.map((m: number) => ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'][m-1]).join(', ')}`, 70, yPosition, 10);
+    yPosition -= 15;
+    addText(`Indigenous Uses: ${plant.indigenousUses.join(', ')}`, 70, yPosition, 10);
+    yPosition -= 15;
+    if (plant.birds && plant.birds.length > 0) {
+      addText(`Birds: ${plant.birds.map((b: any) => b.commonName).join(', ')}`, 70, yPosition, 10);
+      yPosition -= 15;
+    }
+    yPosition -= 20;
+  });
+  
+  // Rebates section
+  if (rebates && rebates.length > 0) {
+    yPosition -= 20;
+    addText('Available Rebates', 50, yPosition, 18, true);
+    yPosition -= 30;
+    
+    rebates.forEach((rebate) => {
+      if (yPosition < 100) {
+        const newPage = pdfDoc.addPage([612, 792]);
+        yPosition = newPage.getSize().height - 50;
+      }
+      
+      addText(rebate.title, 50, yPosition, 14, true);
+      yPosition -= 20;
+      addText(`Amount: ${rebate.amount}`, 70, yPosition, 12);
+      yPosition -= 15;
+      addText(`Requirements: ${rebate.requirements}`, 70, yPosition, 10);
+      yPosition -= 25;
+    });
+  }
+  
+  return await pdfDoc.save();
 }

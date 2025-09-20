@@ -70,7 +70,7 @@ export async function fetchSeasonalPhotos(scientificName: string): Promise<Seaso
   const priorityPlants = [
     'Quercus agrifolia', 'Quercus lobata', 'Ceanothus thyrsiflorus',
     'Heteromeles arbutifolia', 'Eriogonum nudum', 'Baccharis pilularis',
-    'Frangula californica', 'Diplacus aurantiacus'
+    'Frangula californica', 'Diplacus aurantiacus', 'Sambucus', 'Ribes'
   ];
 
   const isPriorityPlant = priorityPlants.some(plant => 
@@ -93,6 +93,33 @@ export async function fetchSeasonalPhotos(scientificName: string): Promise<Seaso
       console.log(`Strategy 1 (base name, CA): Found ${totalObservations} observations`);
     } catch (error) {
       console.log(`Strategy 1 failed for ${scientificName}:`, error);
+    }
+
+    // Strategy 1.5: If we have subspecies/varieties, try base species name
+    if (totalObservations < 10 && (scientificName.includes('var.') || scientificName.includes('ssp.'))) {
+      const baseSpeciesName = scientificName.split(' ').slice(0, 2).join(' ');
+      console.log(`Trying base species name: ${baseSpeciesName}`);
+      
+      const baseSpeciesUrl = `https://api.inaturalist.org/v1/observations?taxon_name=${encodeURIComponent(baseSpeciesName)}&place_id=14&quality_grade=research&per_page=400&order=desc&order_by=created_at`;
+      
+      try {
+        const baseResponse = await makeHttpsRequest(baseSpeciesUrl);
+        const baseObservations = baseResponse.results || [];
+        console.log(`Strategy 1.5 (base species): Found ${baseObservations.length} observations`);
+        
+        // Combine observations, prioritizing subspecies ones
+        const combinedObservations = [...observations];
+        baseObservations.forEach(obs => {
+          if (!combinedObservations.find(existing => existing.id === obs.id)) {
+            combinedObservations.push(obs);
+          }
+        });
+        
+        observations = combinedObservations;
+        totalObservations = observations.length;
+      } catch (error) {
+        console.log(`Strategy 1.5 failed for ${baseSpeciesName}:`, error);
+      }
     }
 
     // Strategy 2: If we don't have enough winter photos, try broader geographic search

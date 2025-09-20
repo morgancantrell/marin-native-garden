@@ -1,0 +1,11 @@
+{
+  "buildCommand": "npm run build",
+  "outputDirectory": ".next",
+  "framework": "nextjs",
+  "env": {
+    "RESEND_API_KEY": "re_D8upaxh7_J5JDxDUTdvZVMZyCaSweCAmx",
+    "MAIL_FROM": "onboarding@resend.dev",
+    "MAPBOX_TOKEN": "pk.eyJ1IjoibW9yZ2FuY2FuIiwiYSI6ImNtZnBkdm45NDBjbWYybHM4aWRweGw5cWsifQ.Xmd79m__PJyKQ-oee3zDYQ",
+    "NEXT_PUBLIC_GOOGLE_MAPS_API_KEY": "AIzaSyCqxKx2Y726WWmG-yXq6BJdKq1Fhieg_kU"
+  }
+}
