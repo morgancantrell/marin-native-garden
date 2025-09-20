@@ -8,139 +8,217 @@ export interface CompanionGroup {
   ecologicalBenefits: string[];
 }
 
-export const companionGroups: CompanionGroup[] = [
-  // Oak Woodland Community
-  {
-    name: "Oak Woodland Understory",
-    description: "Plants that naturally grow beneath Coast Live Oak and Valley Oak canopies",
-    plants: ["Coast Live Oak", "California Buckeye", "Toyon", "Coffeeberry", "Western Sword Fern"],
-    ecologicalBenefits: [
-      "Creates layered canopy structure",
-      "Supports mycorrhizal networks",
-      "Provides year-round habitat for birds",
-      "Natural leaf litter cycling"
-    ]
-  },
-  {
-    name: "Oak Woodland Groundcover",
-    description: "Low-growing plants that form the forest floor community",
-    plants: ["Yerba Buena", "Woodland Strawberry", "Douglas Iris", "Soap Plant", "Wild Ginger"],
-    ecologicalBenefits: [
-      "Prevents soil erosion",
-      "Supports ground-dwelling insects",
-      "Creates microhabitats",
-      "Natural weed suppression"
-    ]
-  },
-
-  // Chaparral Community
-  {
-    name: "Chaparral Shrub Matrix",
-    description: "Drought-tolerant shrubs that form dense, fire-adapted communities",
-    plants: ["Chamise", "Manzanita", "Ceanothus", "Toyon", "Coyote Brush"],
-    ecologicalBenefits: [
-      "Fire-adapted ecosystem",
-      "Deep root systems prevent erosion",
-      "Supports chaparral-dependent wildlife",
-      "Natural windbreaks"
-    ]
-  },
-  {
-    name: "Chaparral Wildflower Meadow",
-    description: "Annual and perennial wildflowers that bloom after winter rains",
-    plants: ["California Poppy", "Sky Lupine", "California Fuchsia", "Sticky Monkeyflower", "Naked Buckwheat"],
-    ecologicalBenefits: [
-      "Supports native pollinators",
-      "Seasonal color and interest",
-      "Natural seed dispersal",
-      "Soil nitrogen fixation"
-    ]
-  },
-
-  // Riparian Community
-  {
-    name: "Streamside Forest",
-    description: "Moisture-loving trees and shrubs along waterways",
-    plants: ["Red Alder", "Bigleaf Maple", "Beaked Hazelnut", "Redtwig Dogwood", "Western Sycamore"],
-    ecologicalBenefits: [
-      "Stabilizes streambanks",
-      "Provides shade for aquatic life",
-      "Filters water runoff",
-      "Supports riparian wildlife"
-    ]
-  },
-  {
-    name: "Riparian Understory",
-    description: "Moisture-tolerant plants in the riparian zone",
-    plants: ["Western Sword Fern", "Douglas Iris", "Redwood Sorrel", "Wild Ginger", "Stream Orchid"],
-    ecologicalBenefits: [
-      "Groundcover prevents erosion",
-      "Supports moisture-loving insects",
-      "Creates cool microclimates",
-      "Natural water filtration"
-    ]
-  },
-
-  // Grassland Community
-  {
-    name: "Native Grass Matrix",
-    description: "Perennial grasses that form the foundation of grassland ecosystems",
-    plants: ["Purple Needlegrass", "California Fescue", "Blue Wildrye", "California Brome", "Deer Grass"],
-    ecologicalBenefits: [
-      "Deep root systems prevent erosion",
-      "Supports grassland birds",
-      "Natural fire resistance",
-      "Soil carbon sequestration"
-    ]
-  },
-  {
-    name: "Grassland Wildflower Mix",
-    description: "Wildflowers that thrive in grassland openings",
-    plants: ["California Poppy", "Sky Lupine", "California Goldfields", "Tidy Tips", "Baby Blue Eyes"],
-    ecologicalBenefits: [
-      "Supports native bees and butterflies",
-      "Seasonal color display",
-      "Natural seed bank",
-      "Pollinator corridors"
-    ]
-  },
-
-  // Coastal Scrub Community
-  {
-    name: "Coastal Scrub Matrix",
-    description: "Salt-tolerant shrubs adapted to coastal conditions",
-    plants: ["Coyote Brush", "California Sagebrush", "Coast Silktassel", "Coffeeberry", "Sticky Monkeyflower"],
-    ecologicalBenefits: [
-      "Salt spray tolerance",
-      "Wind resistance",
-      "Supports coastal wildlife",
-      "Natural dune stabilization"
-    ]
-  }
-];
-
-export function getCompanionGroupsForRegion(region: string): CompanionGroup[] {
-  const regionGroups: { [key: string]: string[] } = {
-    "Oak Woodland": ["Oak Woodland Understory", "Oak Woodland Groundcover"],
-    "Chaparral": ["Chaparral Shrub Matrix", "Chaparral Wildflower Meadow"],
-    "Riparian": ["Streamside Forest", "Riparian Understory"],
-    "Grassland": ["Native Grass Matrix", "Grassland Wildflower Mix"],
-    "Coastal Scrub": ["Coastal Scrub Matrix"]
-  };
-
-  const groupNames = regionGroups[region] || [];
-  return companionGroups.filter(group => groupNames.includes(group.name));
+export interface RecommendedPlant {
+  commonName: string;
+  scientificName: string;
+  matureSize: string;
+  growthRate: string;
+  bloomColor: string;
+  bloomSeason: string;
+  evergreenDeciduous: string;
+  lifespan: string;
+  waterNeeds: string;
+  indigenousUses: string;
+  birds?: string[];
+  seasonalPhotos?: any[];
 }
 
-export function getCompanionGroupsForPlants(plants: string[]): CompanionGroup[] {
-  // Find groups where at least 3 plants from the recommendation are present
-  return companionGroups.filter(group => {
-    const matchingPlants = group.plants.filter(plant => 
-      plants.some(recommendedPlant => 
-        recommendedPlant.toLowerCase().includes(plant.toLowerCase()) ||
-        plant.toLowerCase().includes(recommendedPlant.toLowerCase())
-      )
+// Base companion plant relationships for Marin County
+const companionRelationships: { [key: string]: string[] } = {
+  // Oak Woodland companions
+  "Coast Live Oak": ["California Buckeye", "Toyon", "Coffeeberry", "Western Sword Fern", "Yerba Buena", "Douglas Iris"],
+  "Valley Oak": ["California Buckeye", "Toyon", "Coffeeberry", "Western Sword Fern", "Yerba Buena", "Douglas Iris"],
+  "California Buckeye": ["Coast Live Oak", "Valley Oak", "Toyon", "Coffeeberry", "Western Sword Fern"],
+  "Toyon": ["Coast Live Oak", "Valley Oak", "California Buckeye", "Coffeeberry", "Western Sword Fern", "Yerba Buena"],
+  "Coffeeberry": ["Coast Live Oak", "Valley Oak", "Toyon", "California Buckeye", "Western Sword Fern"],
+  "Western Sword Fern": ["Coast Live Oak", "Valley Oak", "Toyon", "Coffeeberry", "Douglas Iris", "Yerba Buena"],
+  "Yerba Buena": ["Coast Live Oak", "Valley Oak", "Toyon", "Western Sword Fern", "Douglas Iris", "Woodland Strawberry"],
+  "Douglas Iris": ["Coast Live Oak", "Valley Oak", "Western Sword Fern", "Yerba Buena", "Woodland Strawberry"],
+  "Woodland Strawberry": ["Yerba Buena", "Douglas Iris", "Western Sword Fern"],
+  "Soap Plant": ["Coast Live Oak", "Valley Oak", "Western Sword Fern", "Yerba Buena"],
+  
+  // Chaparral companions
+  "Blue Blossom": ["Manzanita", "Toyon", "Coyote Brush", "California Sagebrush", "Sticky Monkeyflower"],
+  "Manzanita": ["Blue Blossom", "Toyon", "Coyote Brush", "California Sagebrush", "Sticky Monkeyflower"],
+  "Toyon": ["Blue Blossom", "Manzanita", "Coyote Brush", "California Sagebrush", "Sticky Monkeyflower"],
+  "Coyote Brush": ["Blue Blossom", "Manzanita", "Toyon", "California Sagebrush", "Sticky Monkeyflower"],
+  "California Sagebrush": ["Blue Blossom", "Manzanita", "Toyon", "Coyote Brush", "Sticky Monkeyflower"],
+  "Sticky Monkeyflower": ["Blue Blossom", "Manzanita", "Toyon", "Coyote Brush", "California Sagebrush"],
+  "Naked Buckwheat": ["California Poppy", "Sky Lupine", "California Fuchsia", "Sticky Monkeyflower"],
+  "California Poppy": ["Sky Lupine", "Naked Buckwheat", "California Fuchsia", "Sticky Monkeyflower"],
+  "Sky Lupine": ["California Poppy", "Naked Buckwheat", "California Fuchsia", "Sticky Monkeyflower"],
+  "California Fuchsia": ["California Poppy", "Sky Lupine", "Naked Buckwheat", "Sticky Monkeyflower"],
+  
+  // Riparian companions
+  "Red Alder": ["Bigleaf Maple", "Beaked Hazelnut", "Redtwig Dogwood", "Western Sycamore"],
+  "Bigleaf Maple": ["Red Alder", "Beaked Hazelnut", "Redtwig Dogwood", "Western Sycamore"],
+  "Beaked Hazelnut": ["Red Alder", "Bigleaf Maple", "Redtwig Dogwood", "Western Sycamore"],
+  "Redtwig Dogwood": ["Red Alder", "Bigleaf Maple", "Beaked Hazelnut", "Western Sycamore"],
+  "Western Sycamore": ["Red Alder", "Bigleaf Maple", "Beaked Hazelnut", "Redtwig Dogwood"],
+  
+  // Grassland companions
+  "Purple Needlegrass": ["California Fescue", "Blue Wildrye", "California Brome", "California Poppy"],
+  "California Fescue": ["Purple Needlegrass", "Blue Wildrye", "California Brome", "California Poppy"],
+  "Blue Wildrye": ["Purple Needlegrass", "California Fescue", "California Brome", "California Poppy"],
+  "California Brome": ["Purple Needlegrass", "California Fescue", "Blue Wildrye", "California Poppy"],
+  
+  // Coastal companions
+  "Coast Silktassel": ["Coyote Brush", "California Sagebrush", "Coffeeberry", "Sticky Monkeyflower"],
+  "California Sagebrush": ["Coast Silktassel", "Coyote Brush", "Coffeeberry", "Sticky Monkeyflower"]
+};
+
+export function getCompanionGroupsForPlants(recommendedPlants: RecommendedPlant[]): CompanionGroup[] {
+  const groups: CompanionGroup[] = [];
+  const usedPlants = new Set<string>();
+  
+  // Create companion groups based on the recommended plants
+  recommendedPlants.forEach(plant => {
+    const companions = companionRelationships[plant.commonName] || [];
+    const availableCompanions = companions.filter(companion => 
+      recommendedPlants.some(rec => rec.commonName === companion) && 
+      !usedPlants.has(companion)
     );
-    return matchingPlants.length >= 3;
+    
+    if (availableCompanions.length >= 2) {
+      const groupPlants = [plant.commonName, ...availableCompanions];
+      const groupName = `${plant.commonName} Community`;
+      
+      let description = "";
+      let benefits: string[] = [];
+      
+      // Determine community type and benefits based on plant characteristics
+      if (plant.waterNeeds?.toLowerCase().includes('low') || plant.waterNeeds?.toLowerCase().includes('drought')) {
+        description = `Drought-tolerant plants that thrive together in ${plant.commonName}'s ecosystem`;
+        benefits = [
+          "Reduced water requirements",
+          "Natural pest resistance",
+          "Supports native pollinators",
+          "Creates microclimate benefits"
+        ];
+      } else if (plant.waterNeeds?.toLowerCase().includes('moderate') || plant.waterNeeds?.toLowerCase().includes('regular')) {
+        description = `Moderate water plants that form a balanced community with ${plant.commonName}`;
+        benefits = [
+          "Balanced water usage",
+          "Supports diverse wildlife",
+          "Natural soil improvement",
+          "Creates layered habitat"
+        ];
+      } else {
+        description = `Plants that naturally grow together with ${plant.commonName} in Marin County`;
+        benefits = [
+          "Supports native ecosystems",
+          "Attracts beneficial wildlife",
+          "Natural soil health",
+          "Minimal maintenance required"
+        ];
+      }
+      
+      groups.push({
+        name: groupName,
+        description,
+        plants: groupPlants,
+        ecologicalBenefits: benefits
+      });
+      
+      // Mark plants as used
+      groupPlants.forEach(p => usedPlants.add(p));
+    }
   });
+  
+  // If we don't have enough groups, create a general community group
+  if (groups.length < 2 && recommendedPlants.length >= 3) {
+    const remainingPlants = recommendedPlants
+      .filter(p => !usedPlants.has(p.commonName))
+      .slice(0, 4)
+      .map(p => p.commonName);
+    
+    if (remainingPlants.length >= 3) {
+      groups.push({
+        name: "Marin Native Plant Community",
+        description: "These plants work together to create a thriving native ecosystem",
+        plants: remainingPlants,
+        ecologicalBenefits: [
+          "Supports native wildlife",
+          "Reduces maintenance needs",
+          "Improves soil health",
+          "Creates natural beauty"
+        ]
+      });
+    }
+  }
+  
+  return groups.slice(0, 4); // Return up to 4 groups
+}
+
+// Legacy function for backward compatibility
+export function getCompanionGroupsForRegion(region: string): CompanionGroup[] {
+  const regionGroups: { [key: string]: CompanionGroup[] } = {
+    "Oak Woodland": [
+      {
+        name: "Oak Woodland Understory",
+        description: "Plants that naturally grow beneath oak canopies",
+        plants: ["Coast Live Oak", "California Buckeye", "Toyon", "Coffeeberry", "Western Sword Fern"],
+        ecologicalBenefits: [
+          "Creates layered canopy structure",
+          "Supports mycorrhizal networks",
+          "Provides year-round habitat for birds",
+          "Natural leaf litter cycling"
+        ]
+      }
+    ],
+    "Chaparral": [
+      {
+        name: "Chaparral Shrub Matrix",
+        description: "Drought-tolerant shrubs that form dense communities",
+        plants: ["Blue Blossom", "Manzanita", "Toyon", "Coyote Brush", "Sticky Monkeyflower"],
+        ecologicalBenefits: [
+          "Fire-adapted ecosystem",
+          "Deep root systems prevent erosion",
+          "Supports chaparral-dependent wildlife",
+          "Natural windbreaks"
+        ]
+      }
+    ],
+    "Riparian": [
+      {
+        name: "Streamside Forest",
+        description: "Moisture-loving trees and shrubs along waterways",
+        plants: ["Red Alder", "Bigleaf Maple", "Beaked Hazelnut", "Redtwig Dogwood"],
+        ecologicalBenefits: [
+          "Stabilizes streambanks",
+          "Provides shade for aquatic life",
+          "Filters water runoff",
+          "Supports riparian wildlife"
+        ]
+      }
+    ],
+    "Grassland": [
+      {
+        name: "Native Grass Matrix",
+        description: "Perennial grasses that form grassland foundations",
+        plants: ["Purple Needlegrass", "California Fescue", "Blue Wildrye", "California Brome"],
+        ecologicalBenefits: [
+          "Deep root systems prevent erosion",
+          "Supports grassland birds",
+          "Natural fire resistance",
+          "Soil carbon sequestration"
+        ]
+      }
+    ],
+    "Coastal Scrub": [
+      {
+        name: "Coastal Scrub Matrix",
+        description: "Salt-tolerant shrubs adapted to coastal conditions",
+        plants: ["Coyote Brush", "California Sagebrush", "Coast Silktassel", "Coffeeberry"],
+        ecologicalBenefits: [
+          "Salt spray tolerance",
+          "Wind resistance",
+          "Supports coastal wildlife",
+          "Natural dune stabilization"
+        ]
+      }
+    ]
+  };
+
+  return regionGroups[region] || [];
 }

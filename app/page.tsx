@@ -337,7 +337,7 @@ export default function Home() {
               </div>
 
               {/* Companion Plant Communities */}
-              <CompanionPlantCards groups={getCompanionGroupsForRegion(result.region)} />
+              <CompanionPlantCards groups={getCompanionGroupsForPlants(result.plants)} />
 
               {result.rebates && result.rebates.length > 0 && (
                 <div className="mt-8">
