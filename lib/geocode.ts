@@ -1,0 +1,100 @@
+import https from 'https';
+import { URL } from 'url';
+
+function makeHttpsRequest(url: string, options: any = {}): Promise<any> {
+  return new Promise((resolve, reject) => {
+    const urlObj = new URL(url);
+    
+    const httpsOptions = {
+      hostname: urlObj.hostname,
+      port: urlObj.port || 443,
+      path: urlObj.pathname + urlObj.search,
+      method: options.method || 'GET',
+      headers: options.headers || {},
+      rejectUnauthorized: false,
+      timeout: 30000,
+    };
+
+    const req = https.request(httpsOptions, (res) => {
+      let data = '';
+      
+      res.on('data', (chunk) => {
+        data += chunk;
+      });
+      
+      res.on('end', () => {
+        resolve({
+          status: res.statusCode,
+          text: () => Promise.resolve(data),
+          json: () => Promise.resolve(JSON.parse(data)),
+          ok: (res.statusCode || 0) >= 200 && (res.statusCode || 0) < 300
+        });
+      });
+    });
+
+    req.on('error', (error) => {
+      reject(error);
+    });
+
+    req.on('timeout', () => {
+      req.destroy();
+      reject(new Error('Request timeout'));
+    });
+
+    if (options.body) {
+      req.write(options.body);
+    }
+    
+    req.end();
+  });
+}
+
+export type GeocodeResult = {
+  latitude: number;
+  longitude: number;
+  city?: string;
+  contextText?: string;
+};
+
+export async function geocodeAddress(address: string): Promise<GeocodeResult | null> {
+  const token = process.env.MAPBOX_TOKEN || process.env.MAPBOX_ACCESS_TOKEN || 'pk.eyJ1IjoibW9yZ2FuY2FuIiwiYSI6ImNtZnBkdm45NDBjbWYybHM4aWRweGw5cWsifQ.Xmd79m__PJyKQ-oee3zDYQ';
+  if (!token) {
+    console.error('No Mapbox token found');
+    return null;
+  }
+  const url = `https://api.mapbox.com/geocoding/v5/mapbox.places/${encodeURIComponent(address)}.json?access_token=${token}&limit=1&autocomplete=false&country=US&proximity=-122.53,38.0`;
+
+  try {
+    const res = await makeHttpsRequest(url);
+    if (!res.ok) return null;
+    const data = await res.json();
+    const feature = data?.features?.[0];
+    if (!feature) return null;
+    const [lng, lat] = feature.center || [];
+    const place = feature.place_name || "";
+    const city = feature.context?.find((c: any) => String(c.id).startsWith("place."))?.text || feature.text;
+
+    return { latitude: lat, longitude: lng, city, contextText: place };
+  } catch (error) {
+    console.error('Geocoding error:', error);
+    return null;
+  }
+}
+
+export function determineWaterDistrict(city?: string): "Marin Water" | "NMWD" {
+  const c = (city || "").toLowerCase();
+  if (c.includes("novato")) return "NMWD";
+  return "Marin Water";
+}
+
+export function determineRegionHeuristic(city?: string): string {
+  const c = (city || "").toLowerCase();
+  if (c.includes("fairfax") || c.includes("mill valley") || c.includes("sausalito")) return "Chaparral";
+
+  if (c.includes("san rafael") || c.includes("ross") || c.includes("kentfield")) return "Oak Woodland";
+
+  if (c.includes("novato")) return "Grassland";
+  if (c.includes("lagunitas") || c.includes("san geronimo") || c.includes("woodacre")) return "Riparian";
+
+  return "Oak Woodland";
+}

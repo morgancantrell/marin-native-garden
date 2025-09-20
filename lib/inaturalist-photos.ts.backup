@@ -1,0 +1,194 @@
+import https from 'https';
+import { URL } from 'url';
+
+export interface SeasonalPhoto {
+  url: string;
+  season: 'spring' | 'summer' | 'fall' | 'winter';
+  timestamp: string;
+}
+
+// Clear cache to force fresh photo fetching
+const photoCache = new Map<string, SeasonalPhoto[]>();
+
+function makeHttpsRequest(url: string): Promise<any> {
+  return new Promise((resolve, reject) => {
+    const urlObj = new URL(url);
+    
+    const options = {
+      hostname: urlObj.hostname,
+      port: urlObj.port || 443,
+      path: urlObj.pathname + urlObj.search,
+      method: 'GET',
+      headers: {
+        'User-Agent': 'Marin-Native-Garden/1.0',
+        'Accept': 'application/json',
+      },
+      rejectUnauthorized: false,
+      timeout: 10000,
+    };
+
+    const req = https.request(options, (res) => {
+      let data = '';
+      
+      res.on('data', (chunk) => {
+        data += chunk;
+      });
+      
+      res.on('end', () => {
+        try {
+          const jsonData = JSON.parse(data);
+          resolve({
+            ok: (res.statusCode || 0) >= 200 && (res.statusCode || 0) < 300,
+            status: res.statusCode,
+            json: () => Promise.resolve(jsonData),
+          });
+        } catch (e) {
+          resolve({
+            ok: (res.statusCode || 0) >= 200 && (res.statusCode || 0) < 300,
+            status: res.statusCode,
+            text: () => Promise.resolve(data),
+          });
+        }
+      });
+    });
+
+    req.on('error', (error) => {
+      reject(error);
+    });
+
+    req.on('timeout', () => {
+      req.destroy();
+      reject(new Error('Request timeout'));
+    });
+
+    req.end();
+  });
+}
+
+// Function to get base species name for photo searches
+function getBaseSpeciesName(scientificName: string): string {
+  // Remove subspecies, varieties, and forms for photo searches
+  // Examples:
+  // "Ribes sanguineum var. glutinosum" -> "Ribes sanguineum"
+  // "Sambucus nigra ssp. caerulea" -> "Sambucus nigra"
+  // "Quercus agrifolia" -> "Quercus agrifolia" (no change)
+  
+  return scientificName
+    .replace(/\s+(var\.|ssp\.|subsp\.|f\.|forma)\s+.*$/i, '')
+    .replace(/\s+(var|ssp|subsp|f|forma)\s+.*$/i, '');
+}
+
+export async function fetchSeasonalPhotos(
+  scientificName: string,
+  seasons: string[] = ['spring', 'summer', 'fall', 'winter']
+): Promise<SeasonalPhoto[]> {
+  // Always fetch fresh photos (no caching for now)
+  const photos: SeasonalPhoto[] = [];
+  
+  try {
+    const baseSpeciesName = getBaseSpeciesName(scientificName);
+  const searchTerms = [baseSpeciesName, scientificName];
+  
+  for (const searchTerm of searchTerms) {
+    try {
+      console.log(`Trying search term: ${searchTerm}`);
+    console.log(`Fetching photos for ${scientificName} (using base name: ${baseSpeciesName})...`);
+    
+    // Use the iNaturalist API with more observations
+    const baseUrl = 'https://api.inaturalist.org/v1/observations';
+    const qualityGrades = ['research', 'needs_id', 'casual'];
+    
+    for (const qualityGrade of qualityGrades) {
+      const params = new URLSearchParams({
+      taxon_name: searchTerm, // Use base species name for search
+      photos: 'true',
+      per_page: '200',
+      order: 'desc',
+      order_by: 'created_at',
+      has: 'photos',
+        quality_grade: qualityGrade,
+      
+    });
+
+    const url = `${baseUrl}?${params}`;
+    const response = await makeHttpsRequest(url);
+    
+    if (!response.ok) {
+      throw new Error(`iNaturalist API error: ${response.status}`);
+    }
+
+    const data = await response.json();
+    const observations = data.results || [];
+
+    console.log(`Found ${observations.length} observations for ${baseSpeciesName}`);
+
+    // Group photos by season based on observation date
+    const photosBySeason: { [key: string]: any[] } = {
+      spring: [],
+      summer: [],
+      fall: [],
+      winter: []
+    };
+
+    for (const obs of observations) {
+      if (!obs.photos || obs.photos.length === 0) continue;
+      
+      const dateStr = obs.observed_on || obs.created_at;
+      if (!dateStr) continue;
+      
+      const date = new Date(dateStr);
+      const month = date.getMonth() + 1;
+      
+      // Determine season based on month
+      let season: string;
+      if (month >= 3 && month <= 5) season = 'spring';
+      else if (month >= 6 && month <= 8) season = 'summer';
+      else if (month >= 9 && month <= 11) season = 'fall';
+      else season = 'winter';
+      
+      // Add photos for this season
+      for (const photo of obs.photos) {
+        photosBySeason[season].push({
+          url: photo.url.replace('square', 'medium'),
+          season,
+          timestamp: dateStr,
+          observation_id: obs.id
+        });
+      }
+    }
+
+    // Only add photos for seasons that have real iNaturalist photos (NO FALLBACKS)
+    for (const season of seasons) {
+      const seasonPhotos = photosBySeason[season];
+      if (seasonPhotos.length > 0) {
+        // Shuffle and take up to 5 photos per season
+        const shuffled = seasonPhotos.sort(() => 0.5 - Math.random());
+        const selectedPhotos = shuffled.slice(0, 5);
+        
+        for (const photo of selectedPhotos) {
+          photos.push({
+            url: photo.url,
+            season: season as any,
+            timestamp: photo.timestamp
+          });
+        }
+      }
+      // NO FALLBACK PHOTOS - only real iNaturalist photos
+    }
+
+    console.log(`Returning ${photos.length} REAL photos for ${scientificName} (${photosBySeason.spring.length} spring, ${photosBySeason.summer.length} summer, ${photosBySeason.fall.length} fall, ${photosBySeason.winter.length} winter available)`);
+    
+    return photos;
+
+  } catch (error) {
+    console.error(`Error fetching photos for ${scientificName}:`, error);
+    
+    // Return empty array instead of fallback photos
+    console.log(`Returning 0 photos for ${scientificName} due to error`);
+    return [];
+  }
+}
+
+export function getPhotoUrl(photo: SeasonalPhoto): string {
+  return photo.url;
+}

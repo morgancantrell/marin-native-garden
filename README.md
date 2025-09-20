@@ -1,3 +1,18 @@
+# Marin Native Garden Planner
+
+Development quickstart:
+
+1. Install dependencies: `npm install`
+2. Run dev server: `npm run dev`
+3. Email/PDF (optional): set env vars in `.env.local`:
+
+```
+RESEND_API_KEY=your_resend_api_key
+MAIL_FROM="Marin Garden Planner <hello@example.com>"
+```
+
+Deploy: This app is optimized for Vercel. After pushing to GitHub, import in Vercel and set the same env vars.
+
 This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
 
 ## Getting Started

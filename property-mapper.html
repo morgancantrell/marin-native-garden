@@ -1,0 +1,211 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Marin County Property Mapper with Sun Exposure</title>
+    
+    <!-- Mapbox CSS -->
+    <link href="https://api.mapbox.com/mapbox-gl-js/v3.0.1/mapbox-gl.css" rel="stylesheet">
+    
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: #f5f5f5;
+        }
+
+        #map {
+            width: 100vw;
+            height: 100vh;
+            position: relative;
+        }
+
+        .search-container {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            z-index: 1000;
+            background: white;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+            min-width: 350px;
+        }
+
+        .search-container h1 {
+            color: #2c3e50;
+            margin-bottom: 15px;
+            font-size: 1.5em;
+        }
+
+        .search-form {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+
+        #address-input {
+            padding: 12px;
+            border: 2px solid #ddd;
+            border-radius: 6px;
+            font-size: 16px;
+            transition: border-color 0.3s ease;
+        }
+
+        #address-input:focus {
+            outline: none;
+            border-color: #3498db;
+        }
+
+        #submit-btn {
+            padding: 12px 20px;
+            background: linear-gradient(135deg, #3498db, #2980b9);
+            color: white;
+            border: none;
+            border-radius: 6px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        #submit-btn:hover {
+            background: linear-gradient(135deg, #2980b9, #1f4e79);
+            transform: translateY(-1px);
+        }
+
+        #submit-btn:disabled {
+            background: #bdc3c7;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .loading {
+            display: none;
+            text-align: center;
+            color: #7f8c8d;
+            font-style: italic;
+        }
+
+        .error {
+            color: #e74c3c;
+            font-size: 14px;
+            margin-top: 10px;
+            display: none;
+        }
+
+        .layer-controls {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            z-index: 1000;
+            background: white;
+            padding: 15px;
+            border-radius: 10px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+            min-width: 200px;
+        }
+
+        .layer-controls h3 {
+            color: #2c3e50;
+            margin-bottom: 10px;
+            font-size: 1.1em;
+        }
+
+        .layer-toggle {
+            display: flex;
+            align-items: center;
+            margin-bottom: 8px;
+        }
+
+        .layer-toggle input[type="checkbox"] {
+            margin-right: 8px;
+        }
+
+        .layer-toggle label {
+            font-size: 14px;
+            color: #34495e;
+            cursor: pointer;
+        }
+
+        .info-panel {
+            position: absolute;
+            bottom: 20px;
+            left: 20px;
+            z-index: 1000;
+            background: white;
+            padding: 15px;
+            border-radius: 10px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+            max-width: 300px;
+            display: none;
+        }
+
+        .info-panel h3 {
+            color: #2c3e50;
+            margin-bottom: 10px;
+        }
+
+        .info-panel p {
+            color: #7f8c8d;
+            font-size: 14px;
+            margin-bottom: 5px;
+        }
+    </style>
+</head>
+<body>
+    <!-- Map Container -->
+    <div id="map"></div>
+
+    <!-- Search Container -->
+    <div class="search-container">
+        <h1>Marin County Property Mapper</h1>
+        <form class="search-form" id="address-form">
+            <input 
+                type="text" 
+                id="address-input" 
+                placeholder="Enter Marin County address..."
+                required
+            >
+            <button type="submit" id="submit-btn">Map Property</button>
+            <div class="loading" id="loading">Loading property data...</div>
+            <div class="error" id="error"></div>
+        </form>
+    </div>
+
+    <!-- Layer Controls -->
+    <div class="layer-controls">
+        <h3>Map Layers</h3>
+        <div class="layer-toggle">
+            <input type="checkbox" id="property-boundary" checked>
+            <label for="property-boundary">Property Boundary</label>
+        </div>
+        <div class="layer-toggle">
+            <input type="checkbox" id="building-footprint" checked>
+            <label for="building-footprint">Building Footprint</label>
+        </div>
+        <div class="layer-toggle">
+            <input type="checkbox" id="sun-exposure" checked>
+            <label for="sun-exposure">Sun Exposure</label>
+        </div>
+    </div>
+
+    <!-- Info Panel -->
+    <div class="info-panel" id="info-panel">
+        <h3>Property Information</h3>
+        <p id="property-info"></p>
+    </div>
+
+    <!-- Mapbox JavaScript -->
+    <script src="https://api.mapbox.com/mapbox-gl-js/v3.0.1/mapbox-gl.js"></script>
+    
+    <!-- Application JavaScript -->
+    <script src="property-mapper.js"></script>
+</body>
+</html>
