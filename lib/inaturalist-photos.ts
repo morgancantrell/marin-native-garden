@@ -7,9 +7,6 @@ export interface SeasonalPhoto {
   timestamp: string;
 }
 
-// Clear cache to force fresh photo fetching
-const photoCache = new Map<string, SeasonalPhoto[]>();
-
 function makeHttpsRequest(url: string): Promise<any> {
   return new Promise((resolve, reject) => {
     const urlObj = new URL(url);
@@ -24,7 +21,7 @@ function makeHttpsRequest(url: string): Promise<any> {
         'Accept': 'application/json',
       },
       rejectUnauthorized: false,
-      timeout: 15000, // Reduced timeout for enhanced strategy
+      timeout: 15000,
     };
 
     const req = https.request(options, (res: any) => {
@@ -56,11 +53,6 @@ function makeHttpsRequest(url: string): Promise<any> {
   });
 }
 
-function getBaseSpeciesName(scientificName: string): string {
-  // Remove subspecies and varieties for broader search
-  return scientificName.split(' ').slice(0, 2).join(' ');
-}
-
 function getSeasonFromDate(dateString: string): 'spring' | 'summer' | 'fall' | 'winter' {
   const date = new Date(dateString);
   const month = date.getMonth() + 1; // 1-12
@@ -71,231 +63,127 @@ function getSeasonFromDate(dateString: string): 'spring' | 'summer' | 'fall' | '
   return 'winter';
 }
 
-export async function fetchSeasonalPhotos(
-  scientificName: string,
-  seasons: string[] = ['spring', 'summer', 'fall', 'winter']
-): Promise<SeasonalPhoto[]> {
-  const photos: SeasonalPhoto[] = [];
+export async function fetchSeasonalPhotos(scientificName: string): Promise<SeasonalPhoto[]> {
+  const seasons: string[] = ['spring', 'summer', 'fall', 'winter'];
   
-  try {
-    const baseSpeciesName = getBaseSpeciesName(scientificName);
-    console.log(`Fetching photos for ${scientificName} (using base name: ${baseSpeciesName})...`);
+  // Priority plants that need extra attention for winter photos
+  const priorityPlants = [
+    'Quercus agrifolia', 'Quercus lobata', 'Ceanothus thyrsiflorus',
+    'Heteromeles arbutifolia', 'Eriogonum nudum', 'Baccharis pilularis',
+    'Frangula californica', 'Diplacus aurantiacus'
+  ];
 
-    // Enhanced search strategy for priority plants
-    const baseUrl = 'https://api.inaturalist.org/v1/observations';
+  const isPriorityPlant = priorityPlants.some(plant => 
+    scientificName.toLowerCase().includes(plant.toLowerCase())
+  );
+
+  try {
+    console.log(`Fetching photos for ${scientificName} (using base name: ${scientificName})...`);
     
-    // Priority plants that need comprehensive photo coverage
-    const priorityPlants = [
-      'Quercus agrifolia', // Coast Live Oak - needs all 4 seasons
-      'Lupinus nanus', // Sky Lupine - needs all seasons
-      'Heteromeles arbutifolia', // Toyon - needs winter
-      'Eriogonum nudum', // Naked Buckwheat - needs winter
-      'Baccharis pilularis', // Coyote Brush
-      'Frangula californica', // Coffeeberry - needs all 4 seasons
-      'Diplacus aurantiacus' // Sticky Monkeyflower - needs winter
-    ];
+    // Strategy 1: Enhanced search with higher per_page and broader geographic scope
+    const baseUrl = `https://api.inaturalist.org/v1/observations?taxon_name=${encodeURIComponent(scientificName)}&place_id=14&quality_grade=research&per_page=400&order=desc&order_by=created_at`;
     
-    const isPriorityPlant = priorityPlants.some(priority => 
-      scientificName.toLowerCase().includes(priority.toLowerCase()) || 
-      baseSpeciesName.toLowerCase().includes(priority.toLowerCase())
-    );
-    
-    const perPage = isPriorityPlant ? '100' : '50'; // More photos for priority plants
-    const placeId = isPriorityPlant ? '14' : '1'; // California focus for priority plants
-    
-    const params = new URLSearchParams({
-      taxon_name: baseSpeciesName,
-      photos: 'true',
-      per_page: perPage,
-      order: 'desc',
-      order_by: 'created_at',
-      has: 'photos',
-      quality_grade: 'research',
-      place_id: placeId,
+    let observations: any[] = [];
+    let totalObservations = 0;
+
+    try {
+      const response = await makeHttpsRequest(baseUrl);
+      observations = response.results || [];
+      totalObservations = observations.length;
+      console.log(`Strategy 1 (base name, CA): Found ${totalObservations} observations`);
+    } catch (error) {
+      console.log(`Strategy 1 failed for ${scientificName}:`, error);
+    }
+
+    // Strategy 2: If we don't have enough winter photos, try broader geographic search
+    const winterPhotos = observations.filter(obs => {
+      if (!obs.observed_on) return false;
+      const season = getSeasonFromDate(obs.observed_on);
+      return season === 'winter';
     });
 
-    let observations: any[] = [];
-    
-    // For priority plants, try multiple search strategies
-    if (isPriorityPlant) {
-      console.log(`Priority plant detected: ${scientificName} - using enhanced search strategy`);
+    if (winterPhotos.length < 2 && isPriorityPlant) {
+      console.log(`Not enough winter photos (${winterPhotos.length}), trying broader search...`);
       
-      // Strategy 1: Base species name with California focus
+      // Try broader geographic search (US West Coast)
+      const broaderUrl = `https://api.inaturalist.org/v1/observations?taxon_name=${encodeURIComponent(scientificName)}&place_id=1&quality_grade=research&per_page=300&order=desc&order_by=created_at`;
+      
       try {
-        const params1 = new URLSearchParams({
-          taxon_name: baseSpeciesName,
-          photos: 'true',
-          per_page: '200',
-          order: 'desc',
-          order_by: 'created_at',
-          has: 'photos',
-          quality_grade: 'research',
-          place_id: '14', // California
+        const broaderResponse = await makeHttpsRequest(broaderUrl);
+        const broaderObservations = broaderResponse.results || [];
+        console.log(`Strategy 2 (broader search): Found ${broaderObservations.length} additional observations`);
+        
+        // Combine observations, prioritizing California ones
+        const combinedObservations = [...observations];
+        broaderObservations.forEach(obs => {
+          if (!combinedObservations.find(existing => existing.id === obs.id)) {
+            combinedObservations.push(obs);
+          }
         });
         
-        const response1 = await makeHttpsRequest(`${baseUrl}?${params1.toString()}`);
-        observations = response1.results || [];
-        console.log(`Strategy 1 (base name, CA): Found ${observations.length} observations`);
+        observations = combinedObservations;
+        totalObservations = observations.length;
       } catch (error) {
-        console.log(`Strategy 1 failed for ${baseSpeciesName}`);
-      }
-      
-      // Strategy 2: Full scientific name with broader geographic scope
-      if (observations.length < 100) {
-        try {
-          const params2 = new URLSearchParams({
-            taxon_name: scientificName,
-            photos: 'true',
-            per_page: '200',
-            order: 'desc',
-            order_by: 'created_at',
-            has: 'photos',
-            quality_grade: 'research',
-            place_id: '1', // United States
-          });
-          
-          const response2 = await makeHttpsRequest(`${baseUrl}?${params2.toString()}`);
-          const additionalObservations = response2.results || [];
-          console.log(`Strategy 2 (full name, US): Found ${additionalObservations.length} additional observations`);
-          
-          // Merge and deduplicate
-          const existingIds = new Set(observations.map(obs => obs.id));
-          const newObservations = additionalObservations.filter((obs: any) => !existingIds.has(obs.id));
-          observations = [...observations, ...newObservations];
-        } catch (error) {
-          console.log(`Strategy 2 failed for ${scientificName}`);
-        }
-      }
-      
-      // Strategy 3: Try with different quality grades for more coverage
-      if (observations.length < 150) {
-        try {
-          const params3 = new URLSearchParams({
-            taxon_name: baseSpeciesName,
-            photos: 'true',
-            per_page: '200',
-            order: 'desc',
-            order_by: 'created_at',
-            has: 'photos',
-            quality_grade: 'needs_id', // Include needs_id for more photos
-            place_id: '14', // California
-          });
-          
-          const response3 = await makeHttpsRequest(`${baseUrl}?${params3.toString()}`);
-          const additionalObservations = response3.results || [];
-          console.log(`Strategy 3 (needs_id, CA): Found ${additionalObservations.length} additional observations`);
-          
-          // Merge and deduplicate
-          const existingIds = new Set(observations.map(obs => obs.id));
-          const newObservations = additionalObservations.filter((obs: any) => !existingIds.has(obs.id));
-          observations = [...observations, ...newObservations];
-        } catch (error) {
-          console.log(`Strategy 3 failed for ${baseSpeciesName}`);
-        }
-      }
-    } else {
-      // Standard search for non-priority plants
-      try {
-        const response = await makeHttpsRequest(`${baseUrl}?${params.toString()}`);
-        observations = response.results || [];
-        console.log(`Found ${observations.length} observations for ${baseSpeciesName}`);
-      } catch (error) {
-        console.log(`Search failed for ${baseSpeciesName}, trying scientific name...`);
-        
-        // Fallback to scientific name with priority plant logic
-        const fallbackParams = new URLSearchParams({
-          taxon_name: scientificName,
-          photos: 'true',
-          per_page: perPage,
-          order: 'desc',
-          order_by: 'created_at',
-          has: 'photos',
-          quality_grade: 'research',
-          place_id: placeId,
-        });
-        
-        try {
-          const fallbackResponse = await makeHttpsRequest(`${baseUrl}?${fallbackParams.toString()}`);
-          observations = fallbackResponse.results || [];
-          console.log(`Found ${observations.length} observations for ${scientificName}`);
-        } catch (fallbackError) {
-          console.log(`Both searches failed for ${scientificName}`);
-          return [];
-        }
+        console.log(`Strategy 2 failed for ${scientificName}:`, error);
       }
     }
-    
-    if (observations.length === 0) {
-      console.log(`No observations found for ${scientificName}`);
-      return [];
-    }
 
-    // Remove duplicates based on observation ID
-    const uniqueObservations = observations.filter((obs, index, self) => 
-      index === self.findIndex(o => o.id === obs.id)
-    );
+    console.log(`Using ${totalObservations} unique observations for ${scientificName}`);
 
-    if (uniqueObservations.length === 0) {
-      console.log(`No research-grade observations found for ${scientificName}`);
-      return [];
-    }
-
-    console.log(`Using ${uniqueObservations.length} unique observations for ${scientificName}`);
-
-    // Group photos by season
-    const photosBySeason: { [key: string]: any[] } = {
-      spring: [],
-      summer: [],
-      fall: [],
-      winter: []
+    // Process observations into seasonal photos
+    const photosBySeason = {
+      spring: [] as SeasonalPhoto[],
+      summer: [] as SeasonalPhoto[],
+      fall: [] as SeasonalPhoto[],
+      winter: [] as SeasonalPhoto[]
     };
 
-    for (const obs of uniqueObservations) {
-      if (obs.photos && obs.photos.length > 0) {
-        const season = getSeasonFromDate(obs.observed_on || obs.created_at);
-        const photo = obs.photos[0]; // Use first photo
-        
-        photosBySeason[season].push({
+    observations.forEach(obs => {
+      if (!obs.observed_on || !obs.photos || obs.photos.length === 0) return;
+      
+      const season = getSeasonFromDate(obs.observed_on);
+      const photo = obs.photos[0]; // Take first photo
+      
+      if (photo && photo.url) {
+        const seasonalPhoto: SeasonalPhoto = {
           url: photo.url.replace('square', 'medium'), // Better quality
-          timestamp: obs.observed_on || obs.created_at
-        });
+          season,
+          timestamp: obs.observed_on
+        };
+        
+        photosBySeason[season].push(seasonalPhoto);
       }
-    }
+    });
 
-    // Prioritize getting more photos for priority plants
-    const targetPhotosPerSeason = 3; // More photos for priority plants
-    
-    for (const season of seasons) {
-      const seasonPhotos = photosBySeason[season];
+    // Select photos for each season
+    const photos: SeasonalPhoto[] = [];
+    const targetPhotosPerSeason = isPriorityPlant ? 4 : 3; // More photos for priority plants
+
+    seasons.forEach(season => {
+      const seasonPhotos = photosBySeason[season as keyof typeof photosBySeason];
+      
       if (seasonPhotos.length > 0) {
-        // Sort by date to get more recent photos first
+        // Sort by timestamp (most recent first)
         const sortedPhotos = seasonPhotos.sort((a, b) => 
           new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()
         );
         
         // Take up to targetPhotosPerSeason photos
         const selectedPhotos = sortedPhotos.slice(0, targetPhotosPerSeason);
-        
-        for (const photo of selectedPhotos) {
-          photos.push({
-            url: photo.url,
-            season: season as any,
-            timestamp: photo.timestamp
-          });
-        }
+        photos.push(...selectedPhotos);
       }
-    }
-    
-    // Log missing seasons but don't fill gaps with incorrect seasonal photos
+    });
+
+    // Log results
     const seasonsWithPhotos = new Set(photos.map(p => p.season));
     const missingSeasons = seasons.filter((s: string) => !seasonsWithPhotos.has(s as "spring" | "summer" | "fall" | "winter"));
-    
+
     if (missingSeasons.length > 0) {
-      console.log(`Missing seasons for ${scientificName}: ${missingSeasons.join(', ')} - not filling gaps to maintain seasonal accuracy`);
+      console.log(`Missing seasons for ${scientificName}: ${missingSeasons.join(', ')} - tried enhanced strategies`);
     }
 
     console.log(`Returning ${photos.length} REAL photos for ${scientificName} (${photosBySeason.spring.length} spring, ${photosBySeason.summer.length} summer, ${photosBySeason.fall.length} fall, ${photosBySeason.winter.length} winter available)`);
-    
+
     return photos;
 
   } catch (error) {

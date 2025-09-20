@@ -31,7 +31,7 @@ export async function POST(request: NextRequest) {
       console.log('Geocode result:', geocodeResult);
     } catch (error) {
       console.error('Geocoding error:', error);
-      return Response.json({ error: "Geocoding failed: " + error.message }, { status: 400 });
+      return Response.json({ error: "Geocoding failed: " + (error as Error).message }, { status: 400 });
     }
     
     if (!geocodeResult) {
@@ -62,7 +62,7 @@ export async function POST(request: NextRequest) {
           // Add timeout to prevent hanging
           const photosPromise = fetchSeasonalPhotos(plant.scientificName);
           const timeoutPromise = new Promise<never>((_, reject) => 
-            setTimeout(() => reject(new Error('Photo fetch timeout')), 25000)
+            setTimeout(() => reject(new Error('Photo fetch timeout')), 35000)
           );
           
           const photos = await Promise.race([photosPromise, timeoutPromise]);
@@ -146,7 +146,7 @@ export async function POST(request: NextRequest) {
     } catch (error) {
       console.error("Email sending error:", error);
       emailStatus = "failed";
-      emailError = error.message;
+      emailError = (error as Error).message;
     }
 
     // Save to database
