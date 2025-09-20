@@ -14,7 +14,7 @@ export type Plant = {
   scientificName: string;
   commonName: string;
   communities: PlantCommunity[];
-  insectSupportScore: number; // relative ranking basis
+  wildlifeSupportScore: number; // relative ranking basis
   evergreenDeciduous: "Evergreen" | "Deciduous" | "Semi-evergreen";
   lifespanYears: number; // average lifespan
   matureHeightFt: number;

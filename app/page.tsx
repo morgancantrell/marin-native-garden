@@ -10,7 +10,7 @@ interface Plant {
   scientificName: string;
   commonName: string;
   communities: string[];
-  insectSupportScore: number;
+  wildlifeSupportScore: number;
   evergreenDeciduous: string;
   lifespanYears: number;
   matureHeightFt: number;
@@ -289,7 +289,7 @@ export default function Home() {
                           <p className="text-sm text-gray-900 italic">{plant.scientificName}</p>
                         </div>
                         <div className="text-right text-sm text-gray-900">
-                          <div className="font-medium">Insect Support Score: {plant.insectSupportScore}</div>
+                          <div className="font-medium">Wildlife Support Score: {plant.wildlifeSupportScore}</div>
                         </div>
                       </div>
                       
