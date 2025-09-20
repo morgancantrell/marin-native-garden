@@ -271,13 +271,13 @@ async function generatePdf(address: string, region: string, waterDistrict: strin
     return false;
   };
   
-  // Helper function to add plant photos
+  // Helper function to add plant photos with better error handling
   const addPlantPhotos = async (plant: any, startY: number) => {
     if (!plant.seasonalPhotos || plant.seasonalPhotos.length === 0) return startY;
     
-    const photoSize = 60;
+    const photoSize = 80;
     const photosPerRow = 4;
-    const photoSpacing = 10;
+    const photoSpacing = 15;
     const totalWidth = (photoSize * photosPerRow) + (photoSpacing * (photosPerRow - 1));
     const startX = (width - totalWidth) / 2;
     
@@ -286,7 +286,7 @@ async function generatePdf(address: string, region: string, waterDistrict: strin
     
     // Add photos in rows
     for (let row = 0; row < Math.ceil(plant.seasonalPhotos.length / photosPerRow); row++) {
-      if (checkNewPage(photoSize + 30)) {
+      if (checkNewPage(photoSize + 50)) {
         photoY = yPosition;
       }
       
@@ -295,142 +295,246 @@ async function generatePdf(address: string, region: string, waterDistrict: strin
         const photoX = startX + (col * (photoSize + photoSpacing));
         
         try {
-          // Fetch and embed photo
-          const photoResponse = await fetch(photo.url);
-          const photoBytes = await photoResponse.arrayBuffer();
-          const photoImage = await pdfDoc.embedPng(photoBytes);
+          // Fetch and embed photo with timeout
+          const controller = new AbortController();
+          const timeoutId = setTimeout(() => controller.abort(), 5000);
           
-          // Draw photo
-          currentPage.drawImage(photoImage, {
+          const photoResponse = await fetch(photo.url, { 
+            signal: controller.signal,
+            headers: {
+              'User-Agent': 'Marin-Native-Garden/1.0'
+            }
+          });
+          clearTimeout(timeoutId);
+          
+          if (photoResponse.ok) {
+            const photoBytes = await photoResponse.arrayBuffer();
+            const photoImage = await pdfDoc.embedPng(photoBytes);
+            
+            // Draw photo with border
+            currentPage.drawRectangle({
+              x: photoX - 2,
+              y: photoY - photoSize - 2,
+              width: photoSize + 4,
+              height: photoSize + 4,
+              borderColor: rgb(0.8, 0.8, 0.8),
+              borderWidth: 1,
+            });
+            
+            currentPage.drawImage(photoImage, {
+              x: photoX,
+              y: photoY - photoSize,
+              width: photoSize,
+              height: photoSize,
+            });
+            
+            // Add season label with background
+            const seasonText = photo.season.charAt(0).toUpperCase() + photo.season.slice(1);
+            const textWidth = boldFont.widthOfTextAtSize(seasonText, 9);
+            currentPage.drawRectangle({
+              x: photoX + photoSize/2 - textWidth/2 - 2,
+              y: photoY - photoSize - 20,
+              width: textWidth + 4,
+              height: 12,
+              color: rgb(0.2, 0.4, 0.2),
+            });
+            
+            addText(seasonText, 
+              photoX + photoSize/2 - textWidth/2, photoY - photoSize - 15, 9, true, rgb(1, 1, 1));
+          }
+          
+        } catch (error) {
+          console.log(`Failed to load photo for ${plant.commonName}:`, error);
+          // Draw placeholder rectangle
+          currentPage.drawRectangle({
             x: photoX,
             y: photoY - photoSize,
             width: photoSize,
             height: photoSize,
+            borderColor: rgb(0.8, 0.8, 0.8),
+            borderWidth: 1,
+            color: rgb(0.95, 0.95, 0.95),
           });
-          
-          // Add season label
-          addText(photo.season.charAt(0).toUpperCase() + photo.season.slice(1), 
-            photoX + photoSize/2 - 10, photoY - photoSize - 15, 8, false, rgb(0.3, 0.3, 0.3));
-          
-        } catch (error) {
-          console.log(`Failed to load photo for ${plant.commonName}:`, error);
+          addText("Photo", photoX + photoSize/2 - 10, photoY - photoSize/2, 10, false, rgb(0.5, 0.5, 0.5));
         }
         
         photoIndex++;
       }
       
-      photoY -= photoSize + 40; // Move to next row
+      photoY -= photoSize + 50; // Move to next row
     }
     
     return photoY;
   };
   
-  // Title with modern styling
-  addText('Marin Native Garden Plan', 50, yPosition, 28, true, rgb(0.2, 0.4, 0.2));
-  yPosition -= 50;
+  // Creative Agency Style Header
+  const headerHeight = 120;
+  currentPage.drawRectangle({
+    x: 0,
+    y: height - headerHeight,
+    width: width,
+    height: headerHeight,
+    color: rgb(0.1, 0.3, 0.1),
+  });
   
-  // Address and region info in a styled box
+  // Main title
+  addText('MARIN NATIVE GARDEN PLAN', 50, height - 40, 32, true, rgb(1, 1, 1));
+  
+  // Subtitle
+  addText('Personalized Native Plant Recommendations', 50, height - 70, 14, false, rgb(0.9, 0.9, 0.9));
+  
+  // Client info section
+  yPosition = height - headerHeight - 30;
+  
+  // Client info box with modern styling
   const infoBoxY = yPosition;
   currentPage.drawRectangle({
     x: 40,
-    y: infoBoxY - 80,
+    y: infoBoxY - 100,
     width: width - 80,
-    height: 80,
-    borderColor: rgb(0.8, 0.8, 0.8),
-    borderWidth: 1,
-    color: rgb(0.95, 0.95, 0.95),
+    height: 100,
+    borderColor: rgb(0.2, 0.4, 0.2),
+    borderWidth: 2,
+    color: rgb(0.98, 0.98, 0.98),
   });
   
-  addText(`Address: ${address}`, 50, infoBoxY - 20, 14, true);
-  addText(`Plant Community: ${region}`, 50, infoBoxY - 40, 12);
-  addText(`Water District: ${waterDistrict}`, 50, infoBoxY - 60, 12);
-  yPosition = infoBoxY - 100;
+  // Client info header
+  addText('PROJECT DETAILS', 60, infoBoxY - 25, 16, true, rgb(0.2, 0.4, 0.2));
   
-  // Plants section with modern styling
-  addText('Recommended Native Plants', 50, yPosition, 20, true, rgb(0.2, 0.4, 0.2));
-  yPosition -= 40;
+  // Client info content
+  addText(`Property Address: ${address}`, 60, infoBoxY - 45, 12, false, rgb(0.2, 0.2, 0.2));
+  addText(`Plant Community: ${region}`, 60, infoBoxY - 65, 12, false, rgb(0.2, 0.2, 0.2));
+  addText(`Water District: ${waterDistrict}`, 60, infoBoxY - 85, 12, false, rgb(0.2, 0.2, 0.2));
+  
+  yPosition = infoBoxY - 120;
+  
+  // Plants section with creative agency styling
+  addText('RECOMMENDED NATIVE PLANTS', 50, yPosition, 24, true, rgb(0.2, 0.4, 0.2));
+  yPosition -= 50;
   
   for (let i = 0; i < plants.length; i++) {
     const plant = plants[i];
     
-    // Check if we need a new page
-    checkNewPage(200);
+    // Check if we need a new page (more space for photos)
+    checkNewPage(300);
     
-    // Plant header with background
-    const plantHeaderY = yPosition;
+    // Plant card with modern styling
+    const cardY = yPosition;
+    const cardHeight = 200; // Increased for photos
+    
+    // Card background with subtle shadow effect
     currentPage.drawRectangle({
       x: 40,
-      y: plantHeaderY - 30,
+      y: cardY - cardHeight,
       width: width - 80,
-      height: 30,
-      color: rgb(0.9, 0.95, 0.9),
+      height: cardHeight,
+      borderColor: rgb(0.2, 0.4, 0.2),
+      borderWidth: 1,
+      color: rgb(0.99, 0.99, 0.99),
     });
     
-    addText(`${i + 1}. ${plant.commonName}`, 50, plantHeaderY - 20, 16, true);
-    addText(`(${plant.scientificName})`, 50, plantHeaderY - 35, 12, false, rgb(0.4, 0.4, 0.4));
-    yPosition = plantHeaderY - 50;
+    // Plant header with accent color
+    currentPage.drawRectangle({
+      x: 40,
+      y: cardY - 40,
+      width: width - 80,
+      height: 40,
+      color: rgb(0.2, 0.4, 0.2),
+    });
     
-    // Plant details in two columns
-    const leftColumnX = 50;
+    addText(`${i + 1}. ${plant.commonName.toUpperCase()}`, 60, cardY - 25, 16, true, rgb(1, 1, 1));
+    addText(`(${plant.scientificName})`, 60, cardY - 40, 10, false, rgb(0.8, 0.8, 0.8));
+    
+    // Plant details with consistent spacing
+    let detailY = cardY - 60;
+    const leftColumnX = 60;
     const rightColumnX = width / 2 + 20;
     
-    addText(`Size: ${plant.matureHeightFt}'H × ${plant.matureWidthFt}'W`, leftColumnX, yPosition, 11);
-    addText(`Growth Rate: ${plant.growthRate}`, rightColumnX, yPosition, 11);
-    yPosition -= 18;
+    addText(`Mature Size: ${plant.matureHeightFt}'H × ${plant.matureWidthFt}'W`, leftColumnX, detailY, 11, false, rgb(0.2, 0.2, 0.2));
+    addText(`Growth Rate: ${plant.growthRate}`, rightColumnX, detailY, 11, false, rgb(0.2, 0.2, 0.2));
+    detailY -= 20;
     
-    addText(`Wildlife Support: ${plant.wildlifeSupportScore} (${getWildlifeAssessment(plant.wildlifeSupportScore)})`, leftColumnX, yPosition, 11);
-    yPosition -= 18;
+    addText(`Wildlife Support: ${plant.wildlifeSupportScore} (${getWildlifeAssessment(plant.wildlifeSupportScore)})`, leftColumnX, detailY, 11, false, rgb(0.2, 0.2, 0.2));
+    detailY -= 20;
     
-    addText(`Type: ${plant.evergreenDeciduous}`, leftColumnX, yPosition, 11);
-    addText(`Lifespan: ${plant.lifespanYears} years`, rightColumnX, yPosition, 11);
-    yPosition -= 18;
+    addText(`Type: ${plant.evergreenDeciduous}`, leftColumnX, detailY, 11, false, rgb(0.2, 0.2, 0.2));
+    addText(`Lifespan: ${plant.lifespanYears} years`, rightColumnX, detailY, 11, false, rgb(0.2, 0.2, 0.2));
+    detailY -= 20;
     
-    addText(`Flower Colors: ${plant.flowerColors.join(', ')}`, leftColumnX, yPosition, 11);
-    yPosition -= 18;
+    addText(`Flower Colors: ${plant.flowerColors.join(', ')}`, leftColumnX, detailY, 11, false, rgb(0.2, 0.2, 0.2));
+    detailY -= 20;
     
-    addText(`Bloom Season: ${plant.bloomMonths.map((m: number) => ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'][m-1]).join(', ')}`, leftColumnX, yPosition, 11);
-    yPosition -= 18;
+    addText(`Bloom Season: ${plant.bloomMonths.map((m: number) => ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'][m-1]).join(', ')}`, leftColumnX, detailY, 11, false, rgb(0.2, 0.2, 0.2));
+    detailY -= 20;
     
-    addText(`Indigenous Uses: ${plant.indigenousUses.join(', ')}`, leftColumnX, yPosition, 11);
-    yPosition -= 18;
+    addText(`Indigenous Uses: ${plant.indigenousUses.join(', ')}`, leftColumnX, detailY, 11, false, rgb(0.2, 0.2, 0.2));
+    detailY -= 20;
     
     if (plant.birds && plant.birds.length > 0) {
-      addText(`Birds: ${plant.birds.map((b: any) => b.commonName).join(', ')}`, leftColumnX, yPosition, 11);
-      yPosition -= 18;
+      addText(`Birds Attracted: ${plant.birds.map((b: any) => b.commonName).join(', ')}`, leftColumnX, detailY, 11, false, rgb(0.2, 0.2, 0.2));
+      detailY -= 20;
     }
     
     // Add plant photos
-    yPosition = await addPlantPhotos(plant, yPosition - 20);
-    yPosition -= 30; // Space between plants
+    yPosition = await addPlantPhotos(plant, detailY - 10);
+    yPosition -= 40; // Space between plants
   }
   
-  // Rebates section with modern styling
+  // Rebates section with creative agency styling
   if (rebates && rebates.length > 0) {
-    checkNewPage(150);
+    checkNewPage(200);
     
-    addText('Available Rebates', 50, yPosition, 20, true, rgb(0.2, 0.4, 0.2));
-    yPosition -= 40;
+    addText('AVAILABLE REBATES & INCENTIVES', 50, yPosition, 24, true, rgb(0.2, 0.4, 0.2));
+    yPosition -= 50;
     
     rebates.forEach((rebate, index) => {
-      checkNewPage(100);
+      checkNewPage(120);
       
-      // Rebate card styling
+      // Rebate card with modern styling
       const rebateCardY = yPosition;
+      const cardHeight = 100;
+      
+      // Card background
       currentPage.drawRectangle({
         x: 40,
-        y: rebateCardY - 80,
+        y: rebateCardY - cardHeight,
         width: width - 80,
-        height: 80,
-        borderColor: rgb(0.8, 0.8, 0.8),
+        height: cardHeight,
+        borderColor: rgb(0.2, 0.4, 0.2),
         borderWidth: 1,
-        color: rgb(0.98, 0.98, 0.98),
+        color: rgb(0.99, 0.99, 0.99),
       });
       
-      addText(rebate.title, 50, rebateCardY - 20, 14, true);
-      addText(`Amount: ${rebate.amount}`, 50, rebateCardY - 40, 12, false, rgb(0.2, 0.6, 0.2));
-      addText(`Requirements: ${rebate.requirements}`, 50, rebateCardY - 60, 10);
+      // Rebate header
+      currentPage.drawRectangle({
+        x: 40,
+        y: rebateCardY - 30,
+        width: width - 80,
+        height: 30,
+        color: rgb(0.2, 0.4, 0.2),
+      });
       
-      yPosition = rebateCardY - 100;
+      addText(rebate.title.toUpperCase(), 60, rebateCardY - 20, 14, true, rgb(1, 1, 1));
+      
+      // Rebate amount badge
+      const amountText = rebate.amount;
+      const amountWidth = boldFont.widthOfTextAtSize(amountText, 12);
+      currentPage.drawRectangle({
+        x: width - 80 - amountWidth - 20,
+        y: rebateCardY - 25,
+        width: amountWidth + 10,
+        height: 20,
+        color: rgb(0.8, 0.9, 0.8),
+      });
+      addText(amountText, width - 80 - amountWidth - 15, rebateCardY - 18, 12, true, rgb(0.2, 0.4, 0.2));
+      
+      // Rebate details
+      addText(`Requirements: ${rebate.requirements}`, 60, rebateCardY - 50, 10, false, rgb(0.2, 0.2, 0.2));
+      
+      // Link (as text since PDF-lib doesn't support clickable links easily)
+      addText(`Apply at: ${rebate.link}`, 60, rebateCardY - 70, 10, false, rgb(0.2, 0.4, 0.2));
+      
+      yPosition = rebateCardY - 120;
     });
   }
   
