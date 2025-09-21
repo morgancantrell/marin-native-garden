@@ -16,7 +16,6 @@ export default function AddressAutocomplete({
   className = "",
   id = "address"
 }: AddressAutocompleteProps) {
-  console.log('AddressAutocomplete: Component rendered with value:', value);
   const inputRef = useRef<HTMLInputElement>(null);
   const [suggestions, setSuggestions] = useState<any[]>([]);
   const [showSuggestions, setShowSuggestions] = useState(false);
@@ -31,9 +30,6 @@ export default function AddressAutocomplete({
   };
 
   const searchAddresses = async (query: string) => {
-    console.log('AddressAutocomplete: searchAddresses called with:', query);
-    console.log('AddressAutocomplete: MAPBOX_TOKEN available:', !!process.env.NEXT_PUBLIC_MAPBOX_TOKEN);
-    
     if (query.length < 3) {
       setSuggestions([]);
       setShowSuggestions(false);
@@ -57,7 +53,6 @@ export default function AddressAutocomplete({
       }
 
       const data = await response.json();
-      console.log('AddressAutocomplete: API response:', data);
       
       // Filter results to ensure they're in Marin County
       const marinResults = data.features.filter((feature: any) => {
@@ -68,7 +63,6 @@ export default function AddressAutocomplete({
                lng <= marinCountyBounds.east;
       });
 
-      console.log('AddressAutocomplete: Filtered results:', marinResults);
       setSuggestions(marinResults);
       setShowSuggestions(marinResults.length > 0);
     } catch (error) {

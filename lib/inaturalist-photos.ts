@@ -74,7 +74,8 @@ export async function fetchSeasonalPhotos(scientificName: string): Promise<Seaso
     'Lupinus nanus', 'Lupinus', 'Toyon', 'Buckwheat', 'Coyote Brush', 'Coffeeberry',
     'Achillea millefolium', 'Clinopodium douglasii', 'Sambucus nigra', // Added for winter photos
     'Yarrow', 'Yerba Buena', 'Blue Elderberry', // Common names for winter photo priority
-    'Nassella pulchra', 'Purple Needlegrass' // Added for Purple Needlegrass photos
+    'Nassella pulchra', 'Purple Needlegrass', // Added for Purple Needlegrass photos
+    'Umbellularia californica', 'Bay Laurel' // Added for Bay Laurel winter photos
   ];
 
   const isPriorityPlant = priorityPlants.some(plant => 
@@ -220,7 +221,7 @@ export async function fetchSeasonalPhotos(scientificName: string): Promise<Seaso
     console.log(`Using ${totalObservations} unique observations for ${scientificName}`);
 
     // Strategy 4: Extra winter photo search for specific plants that need winter photos
-    const winterPriorityPlants = ['Achillea millefolium', 'Clinopodium douglasii', 'Sambucus nigra ssp. caerulea', 'Nassella pulchra'];
+    const winterPriorityPlants = ['Achillea millefolium', 'Clinopodium douglasii', 'Sambucus nigra ssp. caerulea', 'Nassella pulchra', 'Umbellularia californica'];
     const needsWinterPhotos = winterPriorityPlants.some(plant => 
       scientificName.toLowerCase().includes(plant.toLowerCase())
     );
@@ -282,6 +283,40 @@ export async function fetchSeasonalPhotos(scientificName: string): Promise<Seaso
       
       totalObservations = observations.length;
       console.log(`Total Purple Needlegrass observations: ${totalObservations}`);
+    }
+
+    // Strategy 6: Special search for Bay Laurel (Umbellularia californica)
+    if (scientificName.toLowerCase().includes('umbellularia californica') || scientificName.toLowerCase().includes('bay laurel')) {
+      console.log(`Special Bay Laurel photo search for ${scientificName}...`);
+      
+      // Search with broader geographic scope and different quality grades
+      const bayLaurelSearches = [
+        `https://api.inaturalist.org/v1/observations?taxon_name=${encodeURIComponent('Umbellularia californica')}&place_id=14&per_page=200&order=desc&order_by=created_at`,
+        `https://api.inaturalist.org/v1/observations?taxon_name=${encodeURIComponent('Umbellularia californica')}&place_id=14&quality_grade=needs_id&per_page=200&order=desc&order_by=created_at`,
+        `https://api.inaturalist.org/v1/observations?taxon_name=${encodeURIComponent('Umbellularia californica')}&place_id=14&quality_grade=casual&per_page=200&order=desc&order_by=created_at`,
+        // Search in broader California area
+        `https://api.inaturalist.org/v1/observations?taxon_name=${encodeURIComponent('Umbellularia californica')}&place_id=14&swlat=32.5&swlng=-124.5&nelat=42.0&nelng=-114.0&per_page=200&order=desc&order_by=created_at`
+      ];
+      
+      for (const searchUrl of bayLaurelSearches) {
+        try {
+          const response = await makeHttpsRequest(searchUrl);
+          const searchObservations = response.results || [];
+          console.log(`Bay Laurel search: Found ${searchObservations.length} observations`);
+          
+          // Add unique observations
+          searchObservations.forEach(obs => {
+            if (!observations.find(existing => existing.id === obs.id)) {
+              observations.push(obs);
+            }
+          });
+        } catch (error) {
+          console.log(`Bay Laurel search failed:`, error);
+        }
+      }
+      
+      totalObservations = observations.length;
+      console.log(`Total Bay Laurel observations: ${totalObservations}`);
     }
 
     // Process observations into seasonal photos
