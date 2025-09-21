@@ -21,11 +21,11 @@ function makeHttpsRequest(url: string): Promise<any> {
         'Accept': 'application/json',
       },
       rejectUnauthorized: false,
-      timeout: 15000,
+      timeout: 25000,
     };
 
     const req = https.request(options, (res: any) => {
-      req.setTimeout(15000, () => {
+      req.setTimeout(25000, () => {
         req.destroy();
         reject(new Error("Request timeout"));
       });
@@ -70,7 +70,8 @@ export async function fetchSeasonalPhotos(scientificName: string): Promise<Seaso
   const priorityPlants = [
     'Quercus agrifolia', 'Quercus lobata', 'Ceanothus thyrsiflorus',
     'Heteromeles arbutifolia', 'Eriogonum nudum', 'Baccharis pilularis',
-    'Frangula californica', 'Diplacus aurantiacus', 'Sambucus', 'Ribes'
+    'Frangula californica', 'Diplacus aurantiacus', 'Sambucus', 'Ribes',
+    'Lupinus nanus', 'Lupinus', 'Toyon', 'Buckwheat', 'Coyote Brush', 'Coffeeberry'
   ];
 
   const isPriorityPlant = priorityPlants.some(plant => 
@@ -81,7 +82,7 @@ export async function fetchSeasonalPhotos(scientificName: string): Promise<Seaso
     console.log(`Fetching photos for ${scientificName} (using base name: ${scientificName})...`);
     
     // Strategy 1: Enhanced search with higher per_page and broader geographic scope
-    const baseUrl = `https://api.inaturalist.org/v1/observations?taxon_name=${encodeURIComponent(scientificName)}&place_id=14&quality_grade=research&per_page=400&order=desc&order_by=created_at`;
+    const baseUrl = `https://api.inaturalist.org/v1/observations?taxon_name=${encodeURIComponent(scientificName)}&place_id=14&quality_grade=research&per_page=500&order=desc&order_by=created_at`;
     
     let observations: any[] = [];
     let totalObservations = 0;
@@ -100,7 +101,7 @@ export async function fetchSeasonalPhotos(scientificName: string): Promise<Seaso
       const baseSpeciesName = scientificName.split(' ').slice(0, 2).join(' ');
       console.log(`Trying base species name: ${baseSpeciesName}`);
       
-      const baseSpeciesUrl = `https://api.inaturalist.org/v1/observations?taxon_name=${encodeURIComponent(baseSpeciesName)}&place_id=14&quality_grade=research&per_page=400&order=desc&order_by=created_at`;
+      const baseSpeciesUrl = `https://api.inaturalist.org/v1/observations?taxon_name=${encodeURIComponent(baseSpeciesName)}&place_id=14&quality_grade=research&per_page=500&order=desc&order_by=created_at`;
       
       try {
         const baseResponse = await makeHttpsRequest(baseSpeciesUrl);
@@ -133,7 +134,7 @@ export async function fetchSeasonalPhotos(scientificName: string): Promise<Seaso
       console.log(`Not enough winter photos (${winterPhotos.length}), trying broader search...`);
       
       // Try broader geographic search (US West Coast)
-      const broaderUrl = `https://api.inaturalist.org/v1/observations?taxon_name=${encodeURIComponent(scientificName)}&place_id=1&quality_grade=research&per_page=300&order=desc&order_by=created_at`;
+      const broaderUrl = `https://api.inaturalist.org/v1/observations?taxon_name=${encodeURIComponent(scientificName)}&place_id=1&quality_grade=research&per_page=400&order=desc&order_by=created_at`;
       
       try {
         const broaderResponse = await makeHttpsRequest(broaderUrl);
@@ -153,6 +154,40 @@ export async function fetchSeasonalPhotos(scientificName: string): Promise<Seaso
       } catch (error) {
         console.log(`Strategy 2 failed for ${scientificName}:`, error);
       }
+    }
+
+    // Strategy 3: Aggressive winter photo search for specific plants
+    const winterPhotoCount = observations.filter(obs => {
+      if (!obs.observed_on) return false;
+      const season = getSeasonFromDate(obs.observed_on);
+      return season === 'winter';
+    }).length;
+
+    if (winterPhotoCount < 1 && isPriorityPlant) {
+      console.log(`No winter photos found, trying month-specific winter search...`);
+      
+      // Try specific winter months (Dec, Jan, Feb) with broader geographic scope
+      const winterMonths = ['12', '01', '02'];
+      for (const month of winterMonths) {
+        const monthUrl = `https://api.inaturalist.org/v1/observations?taxon_name=${encodeURIComponent(scientificName)}&place_id=1&quality_grade=research&per_page=300&order=desc&order_by=created_at&month=${month}`;
+        
+        try {
+          const monthResponse = await makeHttpsRequest(monthUrl);
+          const monthObservations = monthResponse.results || [];
+          console.log(`Strategy 3 (month ${month}): Found ${monthObservations.length} observations`);
+          
+          // Add unique observations
+          monthObservations.forEach(obs => {
+            if (!observations.find(existing => existing.id === obs.id)) {
+              observations.push(obs);
+            }
+          });
+        } catch (error) {
+          console.log(`Strategy 3 (month ${month}) failed:`, error);
+        }
+      }
+      
+      totalObservations = observations.length;
     }
 
     console.log(`Using ${totalObservations} unique observations for ${scientificName}`);
@@ -184,7 +219,7 @@ export async function fetchSeasonalPhotos(scientificName: string): Promise<Seaso
 
     // Select photos for each season
     const photos: SeasonalPhoto[] = [];
-    const targetPhotosPerSeason = isPriorityPlant ? 4 : 3; // More photos for priority plants
+    const targetPhotosPerSeason = isPriorityPlant ? 5 : 3; // More photos for priority plants
 
     seasons.forEach(season => {
       const seasonPhotos = photosBySeason[season as keyof typeof photosBySeason];

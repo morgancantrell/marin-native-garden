@@ -55,7 +55,7 @@ export async function POST(request: NextRequest) {
           // Add timeout to prevent hanging
           const photosPromise = fetchSeasonalPhotos(plant.scientificName);
           const timeoutPromise = new Promise<never>((_, reject) => 
-            setTimeout(() => reject(new Error('Photo fetch timeout')), 35000)
+            setTimeout(() => reject(new Error('Photo fetch timeout')), 45000)
           );
           
           const photos = await Promise.race([photosPromise, timeoutPromise]);
