@@ -164,6 +164,8 @@ export default function Home() {
               </svg>
             `)}')`
           }}
+          role="img"
+          aria-label="Decorative background showing Marin County landscape with rolling hills, sky, and native wildflowers"
         ></div>
       </div>
       
@@ -173,8 +175,14 @@ export default function Home() {
           <h1 className="text-2xl md:text-4xl font-bold text-gray-900 mb-2">
             Marin Native Garden Planner
           </h1>
-          <p className="text-sm md:text-lg text-gray-900">
+          <p className="text-sm md:text-lg text-gray-900 mb-4">
             Get personalized native plant recommendations for your Marin County property
+          </p>
+          <h2 className="text-lg md:text-xl font-semibold text-gray-800 mb-2">
+            Create Your Sustainable Native Garden
+          </h2>
+          <p className="text-sm md:text-base text-gray-700">
+            Discover California native plants perfect for your Marin County landscape, complete with seasonal photos, growth visualizations, and water conservation rebates.
           </p>
         </div>
 
@@ -234,7 +242,7 @@ export default function Home() {
           <div className="max-w-4xl mx-auto">
             <div className="bg-white/95 backdrop-blur-sm rounded-lg shadow-lg p-4 md:p-6 mb-6">
               <div className="flex justify-between items-center mb-4">
-                <h2 className="text-xl font-semibold text-gray-900">Your plan (preview)</h2>
+                <h2 className="text-xl font-semibold text-gray-900">Your Personalized Garden Plan</h2>
                 <button
                   onClick={() => {
                     setResult(null);
@@ -259,7 +267,7 @@ export default function Home() {
 
               {/* Plant Community Summary */}
               <div className="mt-6 bg-green-50 border border-green-200 rounded-lg p-4">
-                <h3 className="text-lg font-semibold text-gray-900 mb-3">About {result.region}</h3>
+                <h3 className="text-lg font-semibold text-gray-900 mb-3">About {result.region} Habitat</h3>
                 <div className="text-sm text-gray-800 space-y-2">
                   {result.region === "Oak Woodland" && (
                     <>
@@ -300,7 +308,7 @@ export default function Home() {
               </div>
 
               <div className="mt-6">
-                <h3 className="text-lg font-semibold mb-4 text-gray-900">Top plants:</h3>
+                <h3 className="text-lg font-semibold mb-4 text-gray-900">Recommended Native Plants for Your Garden</h3>
                 <div className="space-y-6">
                   {result.plants && result.plants.map((plant, index) => (
                     <div key={`${plant.scientificName}-${index}`} className="bg-white/90 backdrop-blur-sm border border-gray-300 rounded-lg p-3 md:p-4">
@@ -337,7 +345,7 @@ export default function Home() {
                       </div>
 
                       <div className="mt-4">
-                        <h5 className="text-md font-semibold text-gray-900 mb-2">Average size over time</h5>
+                        <h4 className="text-md font-semibold text-gray-900 mb-2">Plant Growth Visualization</h4>
                         <GrowthVisualizer
                           scientificName={plant.scientificName}
                           commonName={plant.commonName}
@@ -349,6 +357,7 @@ export default function Home() {
 
                       {true && (
                         <div className="mt-4">
+                          <h4 className="text-md font-semibold text-gray-900 mb-2">Seasonal Photos</h4>
                           <SeasonalPhotos photos={plant.seasonalPhotos || []} scientificName={plant.scientificName} />
                         </div>
                       )}
@@ -384,7 +393,7 @@ export default function Home() {
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1" />
                         </svg>
                       </div>
-                      <h3 className="text-xl font-bold text-gray-900">Water Conservation Rebates</h3>
+                      <h3 className="text-xl font-bold text-gray-900">Available Water Conservation Rebates</h3>
                     </div>
                     <p className="text-gray-700 mb-6">Save money while creating your native garden with these available rebate programs from {result.waterDistrict}:</p>
                     
