@@ -73,7 +73,8 @@ export async function fetchSeasonalPhotos(scientificName: string): Promise<Seaso
     'Frangula californica', 'Diplacus aurantiacus', 'Sambucus', 'Ribes',
     'Lupinus nanus', 'Lupinus', 'Toyon', 'Buckwheat', 'Coyote Brush', 'Coffeeberry',
     'Achillea millefolium', 'Clinopodium douglasii', 'Sambucus nigra', // Added for winter photos
-    'Yarrow', 'Yerba Buena', 'Blue Elderberry' // Common names for winter photo priority
+    'Yarrow', 'Yerba Buena', 'Blue Elderberry', // Common names for winter photo priority
+    'Nassella pulchra', 'Purple Needlegrass' // Added for Purple Needlegrass photos
   ];
 
   const isPriorityPlant = priorityPlants.some(plant => 
@@ -219,7 +220,7 @@ export async function fetchSeasonalPhotos(scientificName: string): Promise<Seaso
     console.log(`Using ${totalObservations} unique observations for ${scientificName}`);
 
     // Strategy 4: Extra winter photo search for specific plants that need winter photos
-    const winterPriorityPlants = ['Achillea millefolium', 'Clinopodium douglasii', 'Sambucus nigra ssp. caerulea'];
+    const winterPriorityPlants = ['Achillea millefolium', 'Clinopodium douglasii', 'Sambucus nigra ssp. caerulea', 'Nassella pulchra'];
     const needsWinterPhotos = winterPriorityPlants.some(plant => 
       scientificName.toLowerCase().includes(plant.toLowerCase())
     );
@@ -247,6 +248,40 @@ export async function fetchSeasonalPhotos(scientificName: string): Promise<Seaso
           console.log(`Winter month ${month} search failed:`, error);
         }
       }
+    }
+
+    // Strategy 5: Special search for Purple Needlegrass (Nassella pulchra)
+    if (scientificName.toLowerCase().includes('nassella pulchra') || scientificName.toLowerCase().includes('purple needlegrass')) {
+      console.log(`Special Purple Needlegrass photo search for ${scientificName}...`);
+      
+      // Search with broader geographic scope and different quality grades
+      const purpleNeedlegrassSearches = [
+        `https://api.inaturalist.org/v1/observations?taxon_name=${encodeURIComponent('Nassella pulchra')}&place_id=14&per_page=200&order=desc&order_by=created_at`,
+        `https://api.inaturalist.org/v1/observations?taxon_name=${encodeURIComponent('Nassella pulchra')}&place_id=14&quality_grade=needs_id&per_page=200&order=desc&order_by=created_at`,
+        `https://api.inaturalist.org/v1/observations?taxon_name=${encodeURIComponent('Nassella pulchra')}&place_id=14&quality_grade=casual&per_page=200&order=desc&order_by=created_at`,
+        // Search in broader California area
+        `https://api.inaturalist.org/v1/observations?taxon_name=${encodeURIComponent('Nassella pulchra')}&place_id=14&swlat=32.5&swlng=-124.5&nelat=42.0&nelng=-114.0&per_page=200&order=desc&order_by=created_at`
+      ];
+      
+      for (const searchUrl of purpleNeedlegrassSearches) {
+        try {
+          const response = await makeHttpsRequest(searchUrl);
+          const searchObservations = response.results || [];
+          console.log(`Purple Needlegrass search: Found ${searchObservations.length} observations`);
+          
+          // Add unique observations
+          searchObservations.forEach(obs => {
+            if (!observations.find(existing => existing.id === obs.id)) {
+              observations.push(obs);
+            }
+          });
+        } catch (error) {
+          console.log(`Purple Needlegrass search failed:`, error);
+        }
+      }
+      
+      totalObservations = observations.length;
+      console.log(`Total Purple Needlegrass observations: ${totalObservations}`);
     }
 
     // Process observations into seasonal photos

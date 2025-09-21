@@ -16,6 +16,7 @@ export default function AddressAutocomplete({
   className = "",
   id = "address"
 }: AddressAutocompleteProps) {
+  console.log('AddressAutocomplete: Component rendered with value:', value);
   const inputRef = useRef<HTMLInputElement>(null);
   const [suggestions, setSuggestions] = useState<any[]>([]);
   const [showSuggestions, setShowSuggestions] = useState(false);
@@ -30,6 +31,9 @@ export default function AddressAutocomplete({
   };
 
   const searchAddresses = async (query: string) => {
+    console.log('AddressAutocomplete: searchAddresses called with:', query);
+    console.log('AddressAutocomplete: MAPBOX_TOKEN available:', !!process.env.NEXT_PUBLIC_MAPBOX_TOKEN);
+    
     if (query.length < 3) {
       setSuggestions([]);
       setShowSuggestions(false);
@@ -53,6 +57,7 @@ export default function AddressAutocomplete({
       }
 
       const data = await response.json();
+      console.log('AddressAutocomplete: API response:', data);
       
       // Filter results to ensure they're in Marin County
       const marinResults = data.features.filter((feature: any) => {
@@ -63,6 +68,7 @@ export default function AddressAutocomplete({
                lng <= marinCountyBounds.east;
       });
 
+      console.log('AddressAutocomplete: Filtered results:', marinResults);
       setSuggestions(marinResults);
       setShowSuggestions(marinResults.length > 0);
     } catch (error) {
@@ -128,11 +134,14 @@ export default function AddressAutocomplete({
       )}
 
       {showSuggestions && suggestions.length > 0 && (
-        <div className="absolute z-50 w-full mt-1 bg-white border border-gray-300 rounded-md shadow-lg max-h-60 overflow-y-auto">
+        <div className="absolute z-50 w-full mt-1 bg-white border-2 border-blue-500 rounded-md shadow-xl max-h-60 overflow-y-auto">
+          <div className="px-3 py-1 text-xs text-blue-600 bg-blue-50 border-b">
+            Found {suggestions.length} Marin County address{suggestions.length !== 1 ? 'es' : ''}
+          </div>
           {suggestions.map((suggestion, index) => (
             <div
               key={index}
-              className="px-3 py-2 hover:bg-gray-100 cursor-pointer text-sm text-gray-900 border-b border-gray-100 last:border-b-0"
+              className="px-3 py-2 hover:bg-blue-50 cursor-pointer text-sm text-gray-900 border-b border-gray-100 last:border-b-0"
               onClick={() => handleSuggestionClick(suggestion)}
             >
               <div className="font-medium">{suggestion.place_name}</div>
