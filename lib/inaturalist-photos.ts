@@ -71,7 +71,9 @@ export async function fetchSeasonalPhotos(scientificName: string): Promise<Seaso
     'Quercus agrifolia', 'Quercus lobata', 'Ceanothus thyrsiflorus',
     'Heteromeles arbutifolia', 'Eriogonum nudum', 'Baccharis pilularis',
     'Frangula californica', 'Diplacus aurantiacus', 'Sambucus', 'Ribes',
-    'Lupinus nanus', 'Lupinus', 'Toyon', 'Buckwheat', 'Coyote Brush', 'Coffeeberry'
+    'Lupinus nanus', 'Lupinus', 'Toyon', 'Buckwheat', 'Coyote Brush', 'Coffeeberry',
+    'Achillea millefolium', 'Clinopodium douglasii', 'Sambucus nigra', // Added for winter photos
+    'Yarrow', 'Yerba Buena', 'Blue Elderberry' // Common names for winter photo priority
   ];
 
   const isPriorityPlant = priorityPlants.some(plant => 
@@ -215,6 +217,37 @@ export async function fetchSeasonalPhotos(scientificName: string): Promise<Seaso
     }
 
     console.log(`Using ${totalObservations} unique observations for ${scientificName}`);
+
+    // Strategy 4: Extra winter photo search for specific plants that need winter photos
+    const winterPriorityPlants = ['Achillea millefolium', 'Clinopodium douglasii', 'Sambucus nigra ssp. caerulea'];
+    const needsWinterPhotos = winterPriorityPlants.some(plant => 
+      scientificName.toLowerCase().includes(plant.toLowerCase())
+    );
+
+    if (needsWinterPhotos) {
+      console.log(`Extra winter photo search for ${scientificName}...`);
+      
+      // Try multiple winter-specific searches
+      const winterMonths = ['12', '01', '02'];
+      for (const month of winterMonths) {
+        const winterUrl = `https://api.inaturalist.org/v1/observations?taxon_name=${encodeURIComponent(scientificName)}&place_id=1&quality_grade=research&per_page=200&order=desc&order_by=created_at&month=${month}`;
+        
+        try {
+          const winterResponse = await makeHttpsRequest(winterUrl);
+          const winterObservations = winterResponse.results || [];
+          console.log(`Winter month ${month}: Found ${winterObservations.length} observations`);
+          
+          // Add unique winter observations
+          winterObservations.forEach(obs => {
+            if (!observations.find(existing => existing.id === obs.id)) {
+              observations.push(obs);
+            }
+          });
+        } catch (error) {
+          console.log(`Winter month ${month} search failed:`, error);
+        }
+      }
+    }
 
     // Process observations into seasonal photos
     const photosBySeason = {
