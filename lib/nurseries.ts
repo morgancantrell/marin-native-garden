@@ -9,9 +9,9 @@ export function getRecommendedNurseries(): Nursery[] {
   return [
     {
       name: "Fairfax Native Plant Nursery",
-      phone: "(415) 456-2010",
-      summary: "Specializes in California native plants with expert guidance for Marin County gardens",
-      website: "https://www.fairfaxnativeplantnursery.com"
+      phone: "(415) 662-3322",
+      summary: "Native plants and habitat-inspired landscapes for Northern California gardens",
+      website: "https://fairfax-native-plant-nursery.company.site/"
     },
     {
       name: "O'Donnell's Nursery",
