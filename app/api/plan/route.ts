@@ -1,203 +1,20 @@
-import { NextRequest } from "next/server";
-import { PrismaClient } from "@prisma/client";
-import { geocodeAddress } from "@/lib/geocode";
-import { fetchSeasonalPhotos } from "@/lib/inaturalist-photos";
-import { getPlantsForRegion } from "@/lib/plants";
-import { getRebates } from "@/lib/rebates";
+import { NextRequest, NextResponse } from 'next/server';
+import { PrismaClient } from '@prisma/client';
+import { getPlantsForRegion } from '@/lib/plants';
+import { getRebates } from '@/lib/rebates';
+import { getSeasonalPhotos } from '@/lib/inaturalist-photos';
+import { getCompanionGroupsForPlants } from '@/lib/companion-plants';
 import { PDFDocument, rgb, StandardFonts } from 'pdf-lib';
 
 const prisma = new PrismaClient();
 
-export async function POST(request: NextRequest) {
-  try {
-    const body = await request.json();
-    const { address, email } = body;
-
-    if (!address || !email) {
-      return Response.json({ error: "Address and email are required" }, { status: 400 });
-    }
-
-    // Email validation
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    if (!emailRegex.test(email)) {
-      return Response.json({ error: "Invalid email format" }, { status: 400 });
-    }
-
-    // Geocode the address
-    let geocodeResult;
-    try {
-      geocodeResult = await geocodeAddress(address);
-    } catch (error) {
-      console.error('Geocoding error:', error);
-      return Response.json({ error: "Geocoding failed: " + (error as Error).message }, { status: 400 });
-    }
-    
-    if (!geocodeResult) {
-      return Response.json({ error: "Could not geocode address" }, { status: 400 });
-    }
-
-    const { latitude, longitude, city } = geocodeResult;
-    const region = determineRegionHeuristic(city);
-    const waterDistrict = determineWaterDistrict(city);
-
-    console.log(`Determined region: ${region} for city: ${city}`);
-
-    // Get plants for the region
-    const plants = getPlantsForRegion(region);
-    console.log(`Found ${plants.length} plants for region: ${region}`);
-
-    // Fetch seasonal photos for each plant (with timeout)
-    const plantsWithPhotos = await Promise.all(
-      plants.map(async (plant) => {
-        try {
-          console.log(`Fetching photos for ${plant.scientificName} (using base name: ${plant.scientificName})...`);
-          
-          // Add timeout to prevent hanging
-          const photosPromise = fetchSeasonalPhotos(plant.scientificName);
-          const timeoutPromise = new Promise<never>((_, reject) => 
-            setTimeout(() => reject(new Error('Photo fetch timeout')), 45000)
-          );
-          
-          const photos = await Promise.race([photosPromise, timeoutPromise]);
-          console.log(`Fetched ${photos.length} photos for ${plant.scientificName}`);
-          
-          return {
-            ...plant,
-            seasonalPhotos: photos
-          };
-        } catch (error) {
-          console.error(`Error fetching photos for ${plant.scientificName}:`, error);
-          return {
-            ...plant,
-            seasonalPhotos: []
-          };
-        }
-      })
-    );
-
-    // Get rebates for the water district
-    const rebates = getRebates(waterDistrict);
-
-    // Generate PDF
-    const pdfBytes = await generatePdf(address, region, waterDistrict, plantsWithPhotos, rebates);
-    const pdfBase64 = Buffer.from(pdfBytes).toString('base64');
-
-    // Send email with PDF attachment
-    let emailStatus = "not attempted";
-    let emailError = "";
-    
-    try {
-      const resendApiKey = process.env.RESEND_API_KEY;
-      const mailFrom = process.env.MAIL_FROM;
-      
-      if (resendApiKey && mailFrom) {
-        const emailData = {
-          from: "Marin Native Garden <" + mailFrom + ">",
-          to: [email],
-          subject: `Your Marin Native Garden Plan - ${address}`,
-          html: `
-            <h2>Your Marin Native Garden Plan</h2>
-            <p>Thank you for using the Marin Native Garden Planner!</p>
-            <p><strong>Address:</strong> ${address}</p>
-            <p><strong>Plant Community:</strong> ${region}</p>
-            <p><strong>Water District:</strong> ${waterDistrict}</p>
-            <p>Your personalized garden plan includes:</p>
-            <ul>
-              <li>10 native plants recommended for your area</li>
-              <li>Seasonal photos of each plant</li>
-              <li>Plant characteristics and growing information</li>
-              <li>Indigenous uses and wildlife benefits</li>
-              <li>Available rebate programs</li>
-            </ul>
-            <p>Please see the attached PDF for your complete garden plan.</p>
-            <p>Happy gardening!</p>
-          `,
-          attachments: [
-            {
-              filename: `marin-garden-plan-${address.replace(/[^a-zA-Z0-9]/g, "-")}.pdf`,
-              content: pdfBase64,
-              type: "application/pdf"
-            }
-          ]
-        };
-
-        // Simple fetch request to Resend API
-        const https = require('https');
-        const agent = new https.Agent({ rejectUnauthorized: false });
-        const response = await fetch('https://api.resend.com/emails', {
-          method: 'POST',
-          agent,
-          headers: {
-            'Authorization': `Bearer ${resendApiKey}`,
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify(emailData),
-        });
-
-        if (response.ok) {
-          emailStatus = "sent";
-          console.log("Email sent successfully");
-        } else {
-          const errorData = await response.json();
-          emailStatus = "failed";
-          emailError = errorData.message || `Email failed with status ${response.status}`;
-          console.error("Email failed:", errorData);
-        }
-      } else {
-        emailStatus = "failed";
-        emailError = "Missing RESEND_API_KEY or MAIL_FROM environment variables";
-        console.error("Missing email configuration");
-      }
-    } catch (error) {
-      console.error("Email sending error:", error);
-      emailStatus = "failed";
-      emailError = (error as Error).message;
-    }
-
-    // Save to database
-    try {
-      await prisma.submission.create({
-        data: {
-          address,
-          email,
-          region,
-          waterDistrict,
-          plantsJson: JSON.stringify(plantsWithPhotos),
-        },
-      });
-    } catch (dbError) {
-      console.error("Database save failed:", dbError);
-    }
-
-    return Response.json({
-      success: true,
-      region,
-      waterDistrict,
-      plants: plantsWithPhotos,
-      rebates,
-      emailStatus,
-      emailError,
-      note: "Email sent successfully"
-    });
-
-  } catch (error) {
-    console.error("API error:", error);
-    return Response.json({ error: "Internal server error" }, { status: 500 });
-  }
-}
-
 function determineRegionHeuristic(city: string): string {
   const cityLower = city.toLowerCase();
   
-  // Oak Woodland areas
-  if (cityLower.includes('san rafael') || cityLower.includes('novato') || 
-      cityLower.includes('petaluma') || cityLower.includes('santa rosa')) {
-    return 'Oak Woodland';
-  }
-  
   // Chaparral areas
   if (cityLower.includes('mill valley') || cityLower.includes('tiburon') || 
-      cityLower.includes('sausalito') || cityLower.includes('fairfax')) {
+      cityLower.includes('belvedere') || cityLower.includes('sausalito') || 
+      cityLower.includes('fairfax')) {
     return 'Chaparral';
   }
   
@@ -254,10 +71,22 @@ async function generatePdf(address: string, region: string, waterDistrict: strin
   const boldFont = await pdfDoc.embedFont(StandardFonts.HelveticaBold);
   
   let currentPage = page;
-  let yPosition = height - 50;
+  let yPosition = height - 40;
+  
+  // Elegant color palette
+  const colors = {
+    primary: rgb(0.15, 0.35, 0.15),      // Deep forest green
+    secondary: rgb(0.25, 0.45, 0.25),    // Medium green
+    accent: rgb(0.4, 0.6, 0.4),          // Light green
+    text: rgb(0.2, 0.2, 0.2),            // Dark gray
+    lightText: rgb(0.4, 0.4, 0.4),       // Medium gray
+    background: rgb(0.98, 0.98, 0.98),   // Off-white
+    white: rgb(1, 1, 1),                 // Pure white
+    border: rgb(0.85, 0.85, 0.85)        // Light gray border
+  };
   
   // Helper function to add text with proper spacing
-  const addText = (text: string, x: number, y: number, fontSize: number = 12, isBold: boolean = false, color: any = rgb(0, 0, 0)) => {
+  const addText = (text: string, x: number, y: number, fontSize: number = 12, isBold: boolean = false, color: any = colors.text) => {
     const currentFont = isBold ? boldFont : font;
     currentPage.drawText(String(text || ''), {
       x,
@@ -272,7 +101,7 @@ async function generatePdf(address: string, region: string, waterDistrict: strin
   const checkNewPage = (requiredSpace: number = 50) => {
     if (yPosition < requiredSpace) {
       currentPage = pdfDoc.addPage([612, 792]);
-      yPosition = currentPage.getSize().height - 50;
+      yPosition = currentPage.getSize().height - 40;
       return true;
     }
     return false;
@@ -287,9 +116,9 @@ async function generatePdf(address: string, region: string, waterDistrict: strin
       return startY;
     }
     
-    const photoSize = 80;
+    const photoSize = 60;
     const photosPerRow = 4;
-    const photoSpacing = 15;
+    const photoSpacing = 12;
     const totalWidth = (photoSize * photosPerRow) + (photoSpacing * (photosPerRow - 1));
     const startX = (width - totalWidth) / 2;
     
@@ -362,13 +191,13 @@ async function generatePdf(address: string, region: string, waterDistrict: strin
               }
             }
             
-            // Draw photo with border
+            // Draw elegant photo frame with subtle shadow
             currentPage.drawRectangle({
-              x: photoX - 2,
-              y: photoY - photoSize - 2,
-              width: photoSize + 4,
-              height: photoSize + 4,
-              borderColor: rgb(0.8, 0.8, 0.8),
+              x: photoX - 1,
+              y: photoY - photoSize - 1,
+              width: photoSize + 2,
+              height: photoSize + 2,
+              borderColor: colors.border,
               borderWidth: 1,
             });
             
@@ -379,171 +208,226 @@ async function generatePdf(address: string, region: string, waterDistrict: strin
               height: photoSize,
             });
             
-            // Add season label with background
+            // Add elegant season label
             const seasonText = photo.season.charAt(0).toUpperCase() + photo.season.slice(1);
-            const textWidth = boldFont.widthOfTextAtSize(seasonText, 9);
+            const textWidth = boldFont.widthOfTextAtSize(seasonText, 8);
             currentPage.drawRectangle({
-              x: photoX + photoSize/2 - textWidth/2 - 2,
-              y: photoY - photoSize - 20,
-              width: textWidth + 4,
+              x: photoX + photoSize/2 - textWidth/2 - 3,
+              y: photoY - photoSize - 18,
+              width: textWidth + 6,
               height: 12,
-              color: rgb(0.2, 0.4, 0.2),
+              color: colors.primary,
             });
             
             addText(seasonText, 
-              photoX + photoSize/2 - textWidth/2, photoY - photoSize - 15, 9, true, rgb(1, 1, 1));
+              photoX + photoSize/2 - textWidth/2, photoY - photoSize - 12, 8, true, colors.white);
           }
           
         } catch (error) {
           console.log(`PDF: Failed to load photo for ${plant.commonName} - ${photo.season}:`, error);
-          // Draw placeholder rectangle
+          // Draw elegant placeholder
           currentPage.drawRectangle({
             x: photoX,
             y: photoY - photoSize,
             width: photoSize,
             height: photoSize,
-            borderColor: rgb(0.8, 0.8, 0.8),
+            borderColor: colors.border,
             borderWidth: 1,
-            color: rgb(0.95, 0.95, 0.95),
+            color: colors.background,
           });
-          addText("Photo", photoX + photoSize/2 - 10, photoY - photoSize/2, 10, false, rgb(0.5, 0.5, 0.5));
+          addText("Photo", photoX + photoSize/2 - 12, photoY - photoSize/2, 9, false, colors.lightText);
         }
         
         photoIndex++;
       }
       
-      photoY -= photoSize + 50; // Move to next row
+      photoY -= photoSize + 40; // Move to next row
     }
     
     return photoY;
   };
   
-  // Creative Agency Style Header
-  const headerHeight = 120;
+  // Elegant Header Design
+  const headerHeight = 100;
+  
+  // Main header background with gradient effect
   currentPage.drawRectangle({
     x: 0,
     y: height - headerHeight,
     width: width,
     height: headerHeight,
-    color: rgb(0.1, 0.3, 0.1),
+    color: colors.primary,
   });
   
-  // Main title
-  addText('MARIN NATIVE GARDEN PLAN', 50, height - 40, 32, true, rgb(1, 1, 1));
+  // Subtle accent line
+  currentPage.drawRectangle({
+    x: 0,
+    y: height - headerHeight + 2,
+    width: width,
+    height: 3,
+    color: colors.accent,
+  });
   
-  // Subtitle
-  addText('Personalized Native Plant Recommendations', 50, height - 70, 14, false, rgb(0.9, 0.9, 0.9));
+  // Main title with elegant typography
+  addText('MARIN NATIVE GARDEN', 50, height - 35, 28, true, colors.white);
   
-  // Client info section
+  // Subtitle with refined styling
+  addText('Personalized Native Plant Recommendations', 50, height - 55, 12, false, colors.white);
+  
+  // Date and project info
+  const currentDate = new Date().toLocaleDateString('en-US', { 
+    year: 'numeric', 
+    month: 'long', 
+    day: 'numeric' 
+  });
+  addText(`Generated ${currentDate}`, width - 200, height - 35, 10, false, colors.white);
+  
   yPosition = height - headerHeight - 30;
   
-  // Client info box with modern styling
-  const infoBoxY = yPosition;
+  // Project Details Section with elegant card design
+  const infoCardY = yPosition;
+  const infoCardHeight = 80;
+  
+  // Card background with subtle border
   currentPage.drawRectangle({
     x: 40,
-    y: infoBoxY - 100,
+    y: infoCardY - infoCardHeight,
     width: width - 80,
-    height: 100,
-    borderColor: rgb(0.2, 0.4, 0.2),
-    borderWidth: 2,
-    color: rgb(0.98, 0.98, 0.98),
+    height: infoCardHeight,
+    borderColor: colors.border,
+    borderWidth: 1,
+    color: colors.white,
   });
   
-  // Client info header
-  addText('PROJECT DETAILS', 60, infoBoxY - 25, 16, true, rgb(0.2, 0.4, 0.2));
+  // Card header with accent
+  currentPage.drawRectangle({
+    x: 40,
+    y: infoCardY - 25,
+    width: width - 80,
+    height: 25,
+    color: colors.secondary,
+  });
   
-  // Client info content
-  addText(`Property Address: ${address}`, 60, infoBoxY - 45, 12, false, rgb(0.2, 0.2, 0.2));
-  addText(`Plant Community: ${region}`, 60, infoBoxY - 65, 12, false, rgb(0.2, 0.2, 0.2));
-  addText(`Water District: ${waterDistrict}`, 60, infoBoxY - 85, 12, false, rgb(0.2, 0.2, 0.2));
+  addText('PROJECT DETAILS', 60, infoCardY - 18, 14, true, colors.white);
   
-  yPosition = infoBoxY - 120;
+  // Project details in elegant columns
+  const leftCol = 60;
+  const rightCol = width / 2 + 20;
   
-  // Plants section with creative agency styling
-  addText('RECOMMENDED NATIVE PLANTS', 50, yPosition, 24, true, rgb(0.2, 0.4, 0.2));
-  yPosition -= 50;
+  addText(`Property Address`, leftCol, infoCardY - 40, 9, true, colors.lightText);
+  addText(address, leftCol, infoCardY - 55, 11, false, colors.text);
+  
+  addText(`Plant Community`, rightCol, infoCardY - 40, 9, true, colors.lightText);
+  addText(region, rightCol, infoCardY - 55, 11, false, colors.text);
+  
+  addText(`Water District`, leftCol, infoCardY - 70, 9, true, colors.lightText);
+  addText(waterDistrict, leftCol, infoCardY - 85, 11, false, colors.text);
+  
+  yPosition = infoCardY - infoCardHeight - 40;
+  
+  // Plants Section with elegant styling
+  addText('RECOMMENDED NATIVE PLANTS', 50, yPosition, 20, true, colors.primary);
+  yPosition -= 30;
   
   for (let i = 0; i < plants.length; i++) {
     const plant = plants[i];
     
-    // Check if we need a new page (more space for photos)
-    checkNewPage(300);
+    // Check if we need a new page
+    checkNewPage(250);
     
-    // Plant card with modern styling
+    // Elegant plant card design
     const cardY = yPosition;
-    const cardHeight = 200; // Increased for photos
+    const cardHeight = 180;
     
-    // Card background with subtle shadow effect
+    // Card background with subtle styling
     currentPage.drawRectangle({
       x: 40,
       y: cardY - cardHeight,
       width: width - 80,
       height: cardHeight,
-      borderColor: rgb(0.2, 0.4, 0.2),
+      borderColor: colors.border,
       borderWidth: 1,
-      color: rgb(0.99, 0.99, 0.99),
+      color: colors.white,
     });
     
-    // Plant header with accent color
+    // Plant header with elegant styling
     currentPage.drawRectangle({
       x: 40,
-      y: cardY - 40,
+      y: cardY - 35,
       width: width - 80,
-      height: 40,
-      color: rgb(0.2, 0.4, 0.2),
+      height: 35,
+      color: colors.primary,
     });
     
-    addText(`${i + 1}. ${plant.commonName.toUpperCase()}`, 60, cardY - 25, 16, true, rgb(1, 1, 1));
-    addText(`(${plant.scientificName})`, 60, cardY - 40, 10, false, rgb(0.8, 0.8, 0.8));
+    // Plant number and name
+    addText(`${String(i + 1).padStart(2, '0')}`, 60, cardY - 20, 12, true, colors.accent);
+    addText(plant.commonName.toUpperCase(), 90, cardY - 20, 16, true, colors.white);
+    addText(`(${plant.scientificName})`, 90, cardY - 35, 9, false, colors.white);
     
-    // Plant details with consistent spacing
-    let detailY = cardY - 60;
+    // Plant details with elegant typography
+    let detailY = cardY - 55;
     const leftColumnX = 60;
     const rightColumnX = width / 2 + 20;
+    const lineHeight = 16;
     
-    addText(`Mature Size: ${plant.matureHeightFt}'H × ${plant.matureWidthFt}'W`, leftColumnX, detailY, 11, false, rgb(0.2, 0.2, 0.2));
-    addText(`Growth Rate: ${plant.growthRate}`, rightColumnX, detailY, 11, false, rgb(0.2, 0.2, 0.2));
-    detailY -= 20;
+    // Size and growth info
+    addText(`Mature Size`, leftColumnX, detailY, 8, true, colors.lightText);
+    addText(`${plant.matureHeightFt}'H × ${plant.matureWidthFt}'W`, leftColumnX, detailY - 12, 10, false, colors.text);
     
-    addText(`Wildlife Support: ${plant.wildlifeSupportScore} (${getWildlifeAssessment(plant.wildlifeSupportScore)})`, leftColumnX, detailY, 11, false, rgb(0.2, 0.2, 0.2));
-    detailY -= 20;
+    addText(`Growth Rate`, rightColumnX, detailY, 8, true, colors.lightText);
+    addText(plant.growthRate, rightColumnX, detailY - 12, 10, false, colors.text);
+    detailY -= 30;
     
-    addText(`Type: ${plant.evergreenDeciduous}`, leftColumnX, detailY, 11, false, rgb(0.2, 0.2, 0.2));
-    addText(`Lifespan: ${plant.lifespanYears} years`, rightColumnX, detailY, 11, false, rgb(0.2, 0.2, 0.2));
-    detailY -= 20;
+    // Wildlife support with assessment
+    addText(`Wildlife Support`, leftColumnX, detailY, 8, true, colors.lightText);
+    addText(`${plant.wildlifeSupportScore} • ${getWildlifeAssessment(plant.wildlifeSupportScore)}`, leftColumnX, detailY - 12, 10, false, colors.text);
+    detailY -= 30;
     
-    addText(`Flower Colors: ${plant.flowerColors.join(', ')}`, leftColumnX, detailY, 11, false, rgb(0.2, 0.2, 0.2));
-    detailY -= 20;
+    // Type and lifespan
+    addText(`Type`, leftColumnX, detailY, 8, true, colors.lightText);
+    addText(plant.evergreenDeciduous, leftColumnX, detailY - 12, 10, false, colors.text);
     
-    addText(`Bloom Season: ${plant.bloomMonths.map((m: number) => ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'][m-1]).join(', ')}`, leftColumnX, detailY, 11, false, rgb(0.2, 0.2, 0.2));
-    detailY -= 20;
+    addText(`Lifespan`, rightColumnX, detailY, 8, true, colors.lightText);
+    addText(`${plant.lifespanYears} years`, rightColumnX, detailY - 12, 10, false, colors.text);
+    detailY -= 30;
     
-    addText(`Indigenous Uses: ${plant.indigenousUses.join(', ')}`, leftColumnX, detailY, 11, false, rgb(0.2, 0.2, 0.2));
-    detailY -= 20;
+    // Bloom information
+    addText(`Bloom Season`, leftColumnX, detailY, 8, true, colors.lightText);
+    addText(plant.bloomMonths.map((m: number) => ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'][m-1]).join(', '), leftColumnX, detailY - 12, 10, false, colors.text);
     
+    addText(`Flower Colors`, rightColumnX, detailY, 8, true, colors.lightText);
+    addText(plant.flowerColors.join(', '), rightColumnX, detailY - 12, 10, false, colors.text);
+    detailY -= 30;
+    
+    // Indigenous uses
+    addText(`Indigenous Uses`, leftColumnX, detailY, 8, true, colors.lightText);
+    addText(plant.indigenousUses.join(', '), leftColumnX, detailY - 12, 10, false, colors.text);
+    detailY -= 30;
+    
+    // Birds attracted
     if (plant.birds && plant.birds.length > 0) {
-      addText(`Birds Attracted: ${plant.birds.map((b: any) => b.commonName).join(', ')}`, leftColumnX, detailY, 11, false, rgb(0.2, 0.2, 0.2));
-      detailY -= 20;
+      addText(`Birds Attracted`, rightColumnX, detailY, 8, true, colors.lightText);
+      addText(plant.birds.map((b: any) => b.commonName).join(', '), rightColumnX, detailY - 12, 10, false, colors.text);
     }
     
     // Add plant photos
-    yPosition = await addPlantPhotos(plant, detailY - 10);
-    yPosition -= 40; // Space between plants
+    yPosition = await addPlantPhotos(plant, detailY - 20);
+    yPosition -= 30; // Elegant spacing between plants
   }
   
-  // Rebates section with creative agency styling
+  // Rebates Section with elegant styling
   if (rebates && rebates.length > 0) {
-    checkNewPage(200);
+    checkNewPage(150);
     
-    addText('AVAILABLE REBATES & INCENTIVES', 50, yPosition, 24, true, rgb(0.2, 0.4, 0.2));
-    yPosition -= 50;
+    addText('AVAILABLE REBATES & INCENTIVES', 50, yPosition, 20, true, colors.primary);
+    yPosition -= 30;
     
     rebates.forEach((rebate, index) => {
-      checkNewPage(120);
+      checkNewPage(100);
       
-      // Rebate card with modern styling
+      // Elegant rebate card
       const rebateCardY = yPosition;
-      const cardHeight = 100;
+      const cardHeight = 80;
       
       // Card background
       currentPage.drawRectangle({
@@ -551,9 +435,9 @@ async function generatePdf(address: string, region: string, waterDistrict: strin
         y: rebateCardY - cardHeight,
         width: width - 80,
         height: cardHeight,
-        borderColor: rgb(0.2, 0.4, 0.2),
+        borderColor: colors.border,
         borderWidth: 1,
-        color: rgb(0.99, 0.99, 0.99),
+        color: colors.white,
       });
       
       // Rebate header
@@ -562,32 +446,254 @@ async function generatePdf(address: string, region: string, waterDistrict: strin
         y: rebateCardY - 30,
         width: width - 80,
         height: 30,
-        color: rgb(0.2, 0.4, 0.2),
+        color: colors.secondary,
       });
       
-      addText(rebate.title.toUpperCase(), 60, rebateCardY - 20, 14, true, rgb(1, 1, 1));
+      addText(rebate.name.toUpperCase(), 60, rebateCardY - 20, 14, true, colors.white);
       
       // Rebate amount badge
-      const amountText = rebate.amount;
+      const amountText = `$${rebate.amount}`;
       const amountWidth = boldFont.widthOfTextAtSize(amountText, 12);
       currentPage.drawRectangle({
         x: width - 80 - amountWidth - 20,
         y: rebateCardY - 25,
-        width: amountWidth + 10,
+        width: amountWidth + 16,
         height: 20,
-        color: rgb(0.8, 0.9, 0.8),
+        color: colors.accent,
       });
-      addText(amountText, width - 80 - amountWidth - 15, rebateCardY - 18, 12, true, rgb(0.2, 0.4, 0.2));
+      addText(amountText, width - 80 - amountWidth - 12, rebateCardY - 18, 12, true, colors.white);
       
       // Rebate details
-      addText(`Requirements: ${rebate.requirements}`, 60, rebateCardY - 50, 10, false, rgb(0.2, 0.2, 0.2));
+      addText(rebate.summary, 60, rebateCardY - 45, 10, false, colors.text);
+      addText(`Requirements: ${rebate.requirements}`, 60, rebateCardY - 60, 9, false, colors.lightText);
       
-      // Link (as text since PDF-lib doesn't support clickable links easily)
-      addText(`Apply at: ${rebate.link}`, 60, rebateCardY - 70, 10, false, rgb(0.2, 0.4, 0.2));
+      if (rebate.link) {
+        addText(`Learn more: ${rebate.link}`, 60, rebateCardY - 75, 9, false, colors.primary);
+      }
       
-      yPosition = rebateCardY - 120;
+      yPosition = rebateCardY - cardHeight - 20;
     });
   }
   
+  // Elegant footer
+  checkNewPage(60);
+  
+  // Footer line
+  currentPage.drawRectangle({
+    x: 0,
+    y: yPosition + 20,
+    width: width,
+    height: 2,
+    color: colors.accent,
+  });
+  
+  addText('Marin Native Garden Planner • Personalized Native Plant Recommendations', 50, yPosition - 10, 10, false, colors.lightText);
+  addText(`Generated on ${currentDate}`, width - 200, yPosition - 10, 10, false, colors.lightText);
+  
   return await pdfDoc.save();
+}
+
+export async function POST(request: NextRequest) {
+  try {
+    const { address, email } = await request.json();
+    
+    if (!address || !email) {
+      return NextResponse.json({ error: 'Address and email are required' }, { status: 400 });
+    }
+    
+    // Email validation
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(email)) {
+      return NextResponse.json({ error: 'Invalid email format' }, { status: 400 });
+    }
+    
+    console.log(`Processing request for address: ${address}, email: ${email}`);
+    
+    // Geocode the address to get coordinates and city
+    const geocodeResponse = await fetch(`https://api.mapbox.com/geocoding/v5/mapbox.places/${encodeURIComponent(address)}.json?access_token=${process.env.MAPBOX_TOKEN}&country=US&region=CA&limit=1`);
+    
+    if (!geocodeResponse.ok) {
+      throw new Error(`Geocoding failed: ${geocodeResponse.status}`);
+    }
+    
+    const geocodeData = await geocodeResponse.json();
+    
+    if (!geocodeData.features || geocodeData.features.length === 0) {
+      throw new Error('Address not found');
+    }
+    
+    const [longitude, latitude] = geocodeData.features[0].center;
+    const city = geocodeData.features[0].context?.find((c: any) => c.id.startsWith('place'))?.text || 'Unknown';
+    
+    console.log(`Geocoded to: ${city} (${latitude}, ${longitude})`);
+    
+    // Determine plant community and water district
+    const region = determineRegionHeuristic(city);
+    const waterDistrict = determineWaterDistrict(city);
+    
+    console.log(`Determined region: ${region}, water district: ${waterDistrict}`);
+    
+    // Get plants for the region
+    const plants = getPlantsForRegion(region);
+    console.log(`Found ${plants.length} plants for ${region}`);
+    
+    // Get seasonal photos for plants
+    console.log('Fetching seasonal photos...');
+    const plantsWithPhotos = await Promise.all(
+      plants.map(async (plant) => {
+        try {
+          const seasonalPhotos = await getSeasonalPhotos(plant.scientificName, plant.commonName);
+          return { ...plant, seasonalPhotos };
+        } catch (error) {
+          console.log(`Failed to get photos for ${plant.commonName}:`, error);
+          return { ...plant, seasonalPhotos: [] };
+        }
+      })
+    );
+    
+    console.log('Photos fetched successfully');
+    
+    // Get rebates
+    const rebates = getRebates(waterDistrict);
+    console.log(`Found ${rebates.length} rebates for ${waterDistrict}`);
+    
+    // Generate PDF
+    console.log('Generating PDF...');
+    const pdfBytes = await generatePdf(address, region, waterDistrict, plantsWithPhotos, rebates);
+    console.log('PDF generated successfully');
+    
+    // Upload PDF to Vercel Blob
+    const formData = new FormData();
+    const pdfBlob = new Blob([pdfBytes], { type: 'application/pdf' });
+    formData.append('file', pdfBlob, `marin-garden-plan-${Date.now()}.pdf`);
+    
+    const uploadResponse = await fetch(`https://api.vercel.com/v1/blob?filename=marin-garden-plan-${Date.now()}.pdf`, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${process.env.BLOB_READ_WRITE_TOKEN}`,
+      },
+      body: formData,
+    });
+    
+    if (!uploadResponse.ok) {
+      throw new Error(`PDF upload failed: ${uploadResponse.status}`);
+    }
+    
+    const uploadData = await uploadResponse.json();
+    console.log('PDF uploaded to Vercel Blob');
+    
+    // Send email with PDF attachment
+    console.log('Sending email...');
+    let emailStatus = 'not attempted';
+    let emailError = null;
+    
+    try {
+      const https = require('https');
+      const agent = new https.Agent({
+        rejectUnauthorized: false
+      });
+      
+      const emailResponse = await fetch('https://api.resend.com/emails', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${process.env.RESEND_API_KEY}`,
+          'Content-Type': 'application/json',
+        },
+        agent: agent,
+        body: JSON.stringify({
+          from: 'Marin Native Garden <onboarding@resend.dev>',
+          to: [email],
+          subject: `Your Marin Native Garden Plan - ${address}`,
+          html: `
+            <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+              <h2 style="color: #2d5a2d;">Your Marin Native Garden Plan</h2>
+              <p>Thank you for using the Marin Native Garden Planner! Your personalized plant recommendations are attached.</p>
+              
+              <div style="background-color: #f5f5f5; padding: 20px; border-radius: 8px; margin: 20px 0;">
+                <h3 style="color: #2d5a2d; margin-top: 0;">Property Details</h3>
+                <p><strong>Address:</strong> ${address}</p>
+                <p><strong>Plant Community:</strong> ${region}</p>
+                <p><strong>Water District:</strong> ${waterDistrict}</p>
+              </div>
+              
+              <div style="background-color: #e8f5e8; padding: 20px; border-radius: 8px; margin: 20px 0;">
+                <h3 style="color: #2d5a2d; margin-top: 0;">Your Recommendations</h3>
+                <p>We've selected ${plants.length} native plants perfect for your ${region} community, including:</p>
+                <ul>
+                  ${plants.slice(0, 5).map(plant => `<li><strong>${plant.commonName}</strong> (${plant.scientificName})</li>`).join('')}
+                  ${plants.length > 5 ? `<li>...and ${plants.length - 5} more plants</li>` : ''}
+                </ul>
+              </div>
+              
+              <p>Your complete garden plan with seasonal photos, plant details, and available rebates is attached as a PDF.</p>
+              
+              <p style="color: #666; font-size: 14px;">
+                This plan was generated specifically for your Marin County property. 
+                All recommended plants are native to your area and will thrive in your local climate.
+              </p>
+            </div>
+          `,
+          attachments: [
+            {
+              filename: `marin-garden-plan-${address.replace(/[^a-zA-Z0-9]/g, '-')}.pdf`,
+              content: Buffer.from(pdfBytes).toString('base64'),
+              type: 'application/pdf',
+              disposition: 'attachment'
+            }
+          ]
+        }),
+      });
+      
+      if (emailResponse.ok) {
+        emailStatus = 'sent';
+        console.log('Email sent successfully');
+      } else {
+        const errorData = await emailResponse.json();
+        emailStatus = 'failed';
+        emailError = errorData.message || 'Unknown error';
+        console.log('Email failed:', errorData);
+      }
+    } catch (error) {
+      emailStatus = 'failed';
+      emailError = error.message;
+      console.log('Email error:', error);
+    }
+    
+    // Save to database
+    try {
+      await prisma.submission.create({
+        data: {
+          address,
+          email,
+          region,
+          waterDistrict,
+          plants: JSON.stringify(plantsWithPhotos),
+          rebates: JSON.stringify(rebates),
+          pdfUrl: uploadData.url,
+          emailStatus,
+          emailError,
+        },
+      });
+      console.log('Saved to database');
+    } catch (dbError) {
+      console.log('Database save failed:', dbError);
+    }
+    
+    return NextResponse.json({
+      success: true,
+      region,
+      waterDistrict,
+      plants: plantsWithPhotos,
+      rebates,
+      pdfUrl: uploadData.url,
+      emailStatus,
+      emailError,
+    });
+    
+  } catch (error) {
+    console.error('API Error:', error);
+    return NextResponse.json({ 
+      error: error.message || 'An error occurred while generating your garden plan' 
+    }, { status: 500 });
+  }
 }
