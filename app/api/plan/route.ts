@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { PrismaClient } from '@prisma/client';
 import { getPlantsForRegion } from '@/lib/plants';
 import { getRebates } from '@/lib/rebates';
+import { getRecommendedNurseries } from '@/lib/nurseries';
 import { fetchSeasonalPhotos } from '@/lib/inaturalist-photos';
 import { getCompanionGroupsForPlants } from '@/lib/companion-plants';
 import { calculateSunExposure } from '@/lib/sun-exposure-calculator';
@@ -499,6 +500,53 @@ async function generatePdf(address: string, region: string, waterDistrict: strin
       }
       
       yPosition = rebateCardY - cardHeight - 20;
+    });
+  }
+  
+  // Recommended Nurseries Section
+  const nurseries = getRecommendedNurseries();
+  if (nurseries && nurseries.length > 0) {
+    checkNewPage(200);
+    
+    addText('RECOMMENDED NURSERIES', 50, yPosition, 20, true, colors.charcoal);
+    addText('Local nurseries specializing in California native plants', 50, yPosition - 25, 12, false, colors.slate);
+    yPosition -= 60;
+    
+    nurseries.forEach((nursery, index) => {
+      checkNewPage(120);
+      
+      // Elegant nursery card
+      const nurseryCardY = yPosition;
+      const cardHeight = 100;
+      
+      // Card background with subtle border
+      currentPage.drawRectangle({
+        x: 40,
+        y: nurseryCardY - cardHeight,
+        width: width - 80,
+        height: cardHeight,
+        borderColor: colors.mist,
+        borderWidth: 1,
+        color: colors.white,
+      });
+      
+      // Nursery header with accent
+      currentPage.drawRectangle({
+        x: 40,
+        y: nurseryCardY - 30,
+        width: width - 80,
+        height: 30,
+        color: colors.sage,
+      });
+      
+      addText(nursery.name.toUpperCase(), 60, nurseryCardY - 20, 14, true, colors.white);
+      
+      // Nursery details
+      addText(nursery.summary, 60, nurseryCardY - 50, 10, false, colors.stone);
+      addText(`Phone: ${nursery.phone}`, 60, nurseryCardY - 70, 10, false, colors.slate);
+      addText(`Website: ${nursery.website}`, 60, nurseryCardY - 85, 9, false, colors.slate);
+      
+      yPosition = nurseryCardY - cardHeight - 20;
     });
   }
   

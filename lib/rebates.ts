@@ -19,12 +19,6 @@ export function getRebates(waterDistrict: string): Rebate[] {
         amount: "Up to $200",
         requirements: "Install weather-based irrigation controller",
         link: "https://www.marinwater.org/conservation/rebates/smart-irrigation"
-      },
-      {
-        title: "High-Efficiency Toilet",
-        amount: "$100 per toilet",
-        requirements: "Replace toilet with 1.28 GPF or less model",
-        link: "https://www.marinwater.org/conservation/rebates/toilets"
       }
     ],
     "North Marin Water District": [
