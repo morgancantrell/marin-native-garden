@@ -262,7 +262,7 @@ export const PLANTS: Plant[] = [
   {
     scientificName: "Nassella pulchra",
     commonName: "Purple Needlegrass",
-    communities: ["Grassland"],
+    communities: ["Grassland", "Chaparral"],
     wildlifeSupportScore: 70,
     evergreenDeciduous: "Semi-evergreen",
     lifespanYears: 150,
@@ -456,7 +456,7 @@ export const PLANTS: Plant[] = [
   {
     scientificName: "Clinopodium douglasii",
     commonName: "Yerba Buena",
-    communities: ["Oak Woodland", "Chaparral"],
+    communities: ["Oak Woodland", "Chaparral", "Riparian"],
     wildlifeSupportScore: 70,
     evergreenDeciduous: "Evergreen",
     lifespanYears: 5,
@@ -750,51 +750,6 @@ export const PLANTS: Plant[] = [
       { commonName: "White-crowned Sparrow" },
     ],
   },
-  // California Fuchsia - important chaparral plant
-  {
-    scientificName: "Epilobium canum",
-    commonName: "California Fuchsia",
-    communities: ["Chaparral", "Oak Woodland"],
-    wildlifeSupportScore: 120,
-    evergreenDeciduous: "Semi-evergreen",
-    lifespanYears: 8,
-    matureHeightFt: 3,
-    matureWidthFt: 4,
-    growthRate: "Fast",
-    flowerColors: ["red", "orange"],
-    bloomMonths: [7, 8, 9, 10],
-    indigenousUses: ["medicinal uses", "nectar source"],
-    butterflies: [
-      { commonName: "Variable Checkerspot", scientificName: "Euphydryas chalcedona" },
-      { commonName: "Mourning Cloak", scientificName: "Nymphalis antiopa" },
-    ],
-    birds: [
-      { commonName: "Anna's Hummingbird" },
-      { commonName: "Allen's Hummingbird" },
-      { commonName: "Rufous Hummingbird" },
-    ],
-  },
-  // Yerba Buena - important groundcover
-  {
-    scientificName: "Clinopodium douglasii",
-    commonName: "Yerba Buena",
-    communities: ["Oak Woodland", "Chaparral", "Riparian"],
-    wildlifeSupportScore: 60,
-    evergreenDeciduous: "Evergreen",
-    lifespanYears: 10,
-    matureHeightFt: 1,
-    matureWidthFt: 3,
-    growthRate: "Moderate",
-    flowerColors: ["white"],
-    bloomMonths: [4, 5, 6],
-    indigenousUses: ["medicinal tea", "aromatic leaves"],
-    butterflies: [
-      { commonName: "Checkered White", scientificName: "Pontia protodice" },
-    ],
-    birds: [
-      { commonName: "Anna's Hummingbird" },
-    ],
-  },
   // Woodland Strawberry - important groundcover
   {
     scientificName: "Fragaria vesca",
@@ -828,50 +783,6 @@ export const PLANTS: Plant[] = [
     matureHeightFt: 3,
     matureWidthFt: 1,
     growthRate: "Fast",
-    flowerColors: ["green"],
-    bloomMonths: [4, 5, 6],
-    indigenousUses: ["seeds ground for food"],
-    butterflies: [
-      { commonName: "Common Ringlet", scientificName: "Coenonympha tullia" },
-    ],
-    birds: [
-      { commonName: "Dark-eyed Junco" },
-      { commonName: "White-crowned Sparrow" },
-    ],
-  },
-  // Purple Needlegrass - California state grass
-  {
-    scientificName: "Nassella pulchra",
-    commonName: "Purple Needlegrass",
-    communities: ["Grassland", "Oak Woodland", "Chaparral"],
-    wildlifeSupportScore: 55,
-    evergreenDeciduous: "Semi-evergreen",
-    lifespanYears: 10,
-    matureHeightFt: 2,
-    matureWidthFt: 2,
-    growthRate: "Moderate",
-    flowerColors: ["purple"],
-    bloomMonths: [4, 5, 6],
-    indigenousUses: ["seeds ground for food", "basketry"],
-    butterflies: [
-      { commonName: "Common Ringlet", scientificName: "Coenonympha tullia" },
-    ],
-    birds: [
-      { commonName: "Dark-eyed Junco" },
-      { commonName: "White-crowned Sparrow" },
-    ],
-  },
-  // California Fescue - native grass for chaparral
-  {
-    scientificName: "Festuca californica",
-    commonName: "California Fescue",
-    communities: ["Chaparral", "Oak Woodland"],
-    wildlifeSupportScore: 45,
-    evergreenDeciduous: "Semi-evergreen",
-    lifespanYears: 8,
-    matureHeightFt: 2,
-    matureWidthFt: 2,
-    growthRate: "Moderate",
     flowerColors: ["green"],
     bloomMonths: [4, 5, 6],
     indigenousUses: ["seeds ground for food"],
