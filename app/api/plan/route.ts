@@ -296,14 +296,25 @@ async function generatePdf(address: string, region: string, waterDistrict: strin
     let photoY = startY;
     let photoIndex = 0;
     
-    // Add photos in rows
-    for (let row = 0; row < Math.ceil(plant.seasonalPhotos.length / photosPerRow); row++) {
+    // Filter to only show one photo per season (spring, summer, fall, winter)
+    const seasons = ['spring', 'summer', 'fall', 'winter'];
+    const uniqueSeasonPhotos = [];
+    
+    for (const season of seasons) {
+      const seasonPhoto = plant.seasonalPhotos.find(p => p.season === season);
+      if (seasonPhoto) {
+        uniqueSeasonPhotos.push(seasonPhoto);
+      }
+    }
+    
+    // Add photos in rows (max 4 photos - one per season)
+    for (let row = 0; row < Math.ceil(uniqueSeasonPhotos.length / photosPerRow); row++) {
       if (checkNewPage(photoSize + 50)) {
         photoY = yPosition;
       }
       
-      for (let col = 0; col < photosPerRow && photoIndex < plant.seasonalPhotos.length; col++) {
-        const photo = plant.seasonalPhotos[photoIndex];
+      for (let col = 0; col < photosPerRow && photoIndex < uniqueSeasonPhotos.length; col++) {
+        const photo = uniqueSeasonPhotos[photoIndex];
         const photoX = startX + (col * (photoSize + photoSpacing));
         
         try {
