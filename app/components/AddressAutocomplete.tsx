@@ -77,7 +77,18 @@ export default function AddressAutocomplete({
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const newValue = e.target.value;
     onChange(newValue);
-    searchAddresses(newValue);
+    
+    // Only search if the change wasn't from browser autofill
+    // Browser autofill typically happens very quickly, so we can detect it
+    if (newValue.length >= 3) {
+      // Small delay to avoid conflicts with browser autofill
+      setTimeout(() => {
+        searchAddresses(newValue);
+      }, 100);
+    } else {
+      setSuggestions([]);
+      setShowSuggestions(false);
+    }
   };
 
   const handleSuggestionClick = (suggestion: any) => {
@@ -117,8 +128,9 @@ export default function AddressAutocomplete({
         onKeyDown={handleKeyDown}
         placeholder={placeholder}
         id={id}
+        name="address"
         className={`w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-gray-900 bg-white ${className}`}
-        autoComplete="off"
+        autoComplete="street-address"
       />
       
       {isLoading && (
