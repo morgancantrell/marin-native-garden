@@ -672,14 +672,14 @@ export async function POST(request: NextRequest) {
               </p>
             </div>
           `,
-          attachments: pdfUrl ? [
+          attachments: [
             {
               filename: `marin-garden-plan-${address.replace(/[^a-zA-Z0-9]/g, '-')}.pdf`,
               content: Buffer.from(pdfBytes).toString('base64'),
               type: 'application/pdf',
               disposition: 'attachment'
             }
-          ] : []
+          ]
         }),
       });
       
@@ -722,6 +722,7 @@ export async function POST(request: NextRequest) {
       success: true,
       region,
       waterDistrict,
+      sunExposure: sunExposureData,
       plants: plantsWithPhotos,
       rebates,
       pdfUrl: pdfUrl,
