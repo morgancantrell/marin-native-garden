@@ -325,11 +325,12 @@ async function generatePdf(address: string, region: string, waterDistrict: strin
           
           if (photoResponse.ok) {
             const photoBytes = await photoResponse.arrayBuffer();
+            const contentType = photoResponse.headers.get('content-type') || '';
             console.log(`PDF: Successfully loaded photo bytes (${photoBytes.byteLength} bytes) for ${plant.commonName}`);
+            console.log(`PDF: Attempting to embed photo for ${plant.commonName} - ${photo.season} (${contentType})`);
             
             // Determine image format and embed accordingly
             let photoImage;
-            const contentType = photoResponse.headers.get('content-type') || '';
             const url = photo.url.toLowerCase();
             
             if (contentType.includes('png') || url.includes('.png')) {
