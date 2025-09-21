@@ -1,6 +1,7 @@
 "use client";
 import CompanionPlantCards from "@/app/components/CompanionPlantCards";
 import { getCompanionGroupsForPlants } from "@/lib/companion-plants";
+import AddressAutocomplete from "@/app/components/AddressAutocomplete";
 
 import { useState } from "react";
 import GrowthVisualizer from "./components/GrowthVisualizer";
@@ -184,11 +185,11 @@ export default function Home() {
                 <label htmlFor="address" className="block text-sm font-medium text-gray-900 mb-1">
                   Property Address
                 </label>
-                <input type="text"
-                  value={address} onChange={(e) => setAddress(e.target.value)}
-                  
+                <AddressAutocomplete
+                  value={address}
+                  onChange={setAddress}
                   placeholder="Enter your Marin County address"
-                  id="address" className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-gray-900 bg-white"
+                  id="address"
                 />
               </div>
               
