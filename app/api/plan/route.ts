@@ -273,7 +273,12 @@ async function generatePdf(address: string, region: string, waterDistrict: strin
   
   // Helper function to add plant photos with better error handling
   const addPlantPhotos = async (plant: any, startY: number) => {
-    if (!plant.seasonalPhotos || plant.seasonalPhotos.length === 0) return startY;
+    console.log(`PDF: Adding photos for ${plant.commonName}, has ${plant.seasonalPhotos?.length || 0} photos`);
+    
+    if (!plant.seasonalPhotos || plant.seasonalPhotos.length === 0) {
+      console.log(`PDF: No photos available for ${plant.commonName}`);
+      return startY;
+    }
     
     const photoSize = 80;
     const photosPerRow = 4;
@@ -295,9 +300,11 @@ async function generatePdf(address: string, region: string, waterDistrict: strin
         const photoX = startX + (col * (photoSize + photoSpacing));
         
         try {
+          console.log(`PDF: Fetching photo for ${plant.commonName} - ${photo.season}: ${photo.url}`);
+          
           // Fetch and embed photo with timeout
           const controller = new AbortController();
-          const timeoutId = setTimeout(() => controller.abort(), 5000);
+          const timeoutId = setTimeout(() => controller.abort(), 15000);
           
           const photoResponse = await fetch(photo.url, { 
             signal: controller.signal,
@@ -307,9 +314,13 @@ async function generatePdf(address: string, region: string, waterDistrict: strin
           });
           clearTimeout(timeoutId);
           
+          console.log(`PDF: Photo response status: ${photoResponse.status} for ${plant.commonName}`);
+          
           if (photoResponse.ok) {
             const photoBytes = await photoResponse.arrayBuffer();
+            console.log(`PDF: Successfully loaded photo bytes (${photoBytes.byteLength} bytes) for ${plant.commonName}`);
             const photoImage = await pdfDoc.embedPng(photoBytes);
+            console.log(`PDF: Successfully embedded photo for ${plant.commonName} - ${photo.season}`);
             
             // Draw photo with border
             currentPage.drawRectangle({
@@ -344,7 +355,7 @@ async function generatePdf(address: string, region: string, waterDistrict: strin
           }
           
         } catch (error) {
-          console.log(`Failed to load photo for ${plant.commonName}:`, error);
+          console.log(`PDF: Failed to load photo for ${plant.commonName} - ${photo.season}:`, error);
           // Draw placeholder rectangle
           currentPage.drawRectangle({
             x: photoX,
