@@ -292,23 +292,23 @@ async function generatePdf(address: string, region: string, waterDistrict: strin
     color: colors.sage,
   });
   
-  // Sophisticated typography hierarchy
-  addText('MARIN NATIVE GARDEN', 60, height - 45, 32, true, colors.charcoal);
-  addText('LANDSCAPE DESIGN RECOMMENDATIONS', 60, height - 70, 14, false, colors.slate);
+  // Sophisticated typography hierarchy with better spacing
+  addText('MARIN NATIVE GARDEN', 60, height - 50, 32, true, colors.charcoal); // Moved down from -45 to -50
+  addText('LANDSCAPE DESIGN RECOMMENDATIONS', 60, height - 75, 14, false, colors.slate); // Moved down from -70 to -75
   
-  // Minimalist date and project info - right aligned
+  // Minimalist date and project info - right aligned with better spacing
   const currentDate = new Date().toLocaleDateString('en-US', { 
     year: 'numeric', 
     month: 'long', 
     day: 'numeric' 
   });
-  addText(`Generated ${currentDate}`, width - 200, height - 45, 11, false, colors.stone);
+  addText(`Generated ${currentDate}`, width - 200, height - 50, 11, false, colors.stone); // Moved down from -45 to -50
   
-  yPosition = height - headerHeight - 60; // More generous spacing
+  yPosition = height - headerHeight - 80; // Increased spacing from 60 to 80
   
   // Minimalist Project Details Section
   const infoCardY = yPosition;
-  const infoCardHeight = 100;
+  const infoCardHeight = 120; // Increased from 100 to 120 for better spacing
   
   // Clean white background with subtle border
   currentPage.drawRectangle({
@@ -321,32 +321,32 @@ async function generatePdf(address: string, region: string, waterDistrict: strin
     color: colors.white,
   });
   
-  // Sophisticated section header
-  addText('PROJECT OVERVIEW', 80, infoCardY - 25, 16, true, colors.charcoal);
+  // Sophisticated section header with more padding
+  addText('PROJECT OVERVIEW', 80, infoCardY - 30, 16, true, colors.charcoal); // Moved down from -25 to -30
   
-  // Clean typography layout with generous spacing
+  // Clean typography layout with more generous spacing
   const leftCol = 80;
   const rightCol = width / 2 + 20;
-  const lineHeight = 18;
+  const lineHeight = 20; // Increased from 18 to 20
   
-  addText(`Property Address`, leftCol, infoCardY - 50, 10, true, colors.slate);
-  addText(address, leftCol, infoCardY - 65, 12, false, colors.stone);
+  addText(`Property Address`, leftCol, infoCardY - 55, 10, true, colors.slate); // Moved down from -50 to -55
+  addText(address, leftCol, infoCardY - 70, 12, false, colors.stone); // Moved down from -65 to -70
   
-  addText(`Plant Community`, rightCol, infoCardY - 50, 10, true, colors.slate);
-  addText(region, rightCol, infoCardY - 65, 12, false, colors.stone);
+  addText(`Plant Community`, rightCol, infoCardY - 55, 10, true, colors.slate); // Moved down from -50 to -55
+  addText(region, rightCol, infoCardY - 70, 12, false, colors.stone); // Moved down from -65 to -70
   
-  addText(`Water District`, leftCol, infoCardY - 85, 10, true, colors.slate);
-  addText(waterDistrict, leftCol, infoCardY - 100, 12, false, colors.stone);
+  addText(`Water District`, leftCol, infoCardY - 90, 10, true, colors.slate); // Moved down from -85 to -90
+  addText(waterDistrict, leftCol, infoCardY - 105, 12, false, colors.stone); // Moved down from -100 to -105
   
-  addText(`Sun Exposure`, rightCol, infoCardY - 85, 10, true, colors.slate);
-  addText(`${sunExposureData.hours} hours (${sunExposureData.level})`, rightCol, infoCardY - 100, 12, false, colors.stone);
+  addText(`Sun Exposure`, rightCol, infoCardY - 90, 10, true, colors.slate); // Moved down from -85 to -90
+  addText(`${sunExposureData.hours} hours (${sunExposureData.level})`, rightCol, infoCardY - 105, 12, false, colors.stone); // Moved down from -100 to -105
   
-  yPosition = infoCardY - infoCardHeight - 80; // Generous spacing
+  yPosition = infoCardY - infoCardHeight - 100; // Increased spacing from 80 to 100
   
-  // Sophisticated Plants Section Header
+  // Sophisticated Plants Section Header with better spacing
   addText('PLANT RECOMMENDATIONS', 80, yPosition, 24, true, colors.charcoal);
-  addText('Curated native species for your landscape', 80, yPosition - 25, 12, false, colors.slate);
-  yPosition -= 60; // Generous spacing
+  addText('Curated native species for your landscape', 80, yPosition - 30, 12, false, colors.slate); // Moved down from -25 to -30
+  yPosition -= 80; // Increased spacing from 60 to 80
   
   for (let i = 0; i < plants.length; i++) {
     const plant = plants[i];
@@ -387,13 +387,13 @@ async function generatePdf(address: string, region: string, waterDistrict: strin
       color: colors.sage,
     });
     
-    // Clean typography hierarchy
-    addText(`${String(i + 1).padStart(2, '0')}`, 80, cardY - 20, 14, true, colors.sage);
-    addText(plant.commonName.toUpperCase(), 120, cardY - 20, 18, true, colors.charcoal);
-    addText(`(${plant.scientificName})`, 120, cardY - 35, 11, false, colors.slate);
+    // Clean typography hierarchy with better spacing
+    addText(`${String(i + 1).padStart(2, '0')}`, 80, cardY - 25, 14, true, colors.sage); // Moved down from -20 to -25
+    addText(plant.commonName.toUpperCase(), 120, cardY - 25, 18, true, colors.charcoal); // Moved down from -20 to -25
+    addText(`(${plant.scientificName})`, 120, cardY - 40, 11, false, colors.slate); // Moved down from -35 to -40
     
-    // Plant details with elegant typography
-    let detailY = cardY - 55;
+    // Plant details with elegant typography and better spacing
+    let detailY = cardY - 60; // Moved down from -55 to -60
     const leftColumnX = 60;
     const rightColumnX = width / 2 + 20;
     const lineHeight = 16;
