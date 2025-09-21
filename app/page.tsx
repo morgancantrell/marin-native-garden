@@ -454,7 +454,7 @@ export default function Home() {
         <footer className="relative z-10 mt-12 text-center">
           <div className="bg-white/90 backdrop-blur-sm rounded-lg p-4 shadow-lg">
             <p className="text-sm text-gray-600">
-              Copyright © {new Date().getFullYear()} Fairfax Native Plant Nursery
+              Copyright © 2025 Fairfax Native Plant Nursery
             </p>
           </div>
         </footer>
