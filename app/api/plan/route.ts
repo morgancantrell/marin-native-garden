@@ -326,8 +326,29 @@ async function generatePdf(address: string, region: string, waterDistrict: strin
           if (photoResponse.ok) {
             const photoBytes = await photoResponse.arrayBuffer();
             console.log(`PDF: Successfully loaded photo bytes (${photoBytes.byteLength} bytes) for ${plant.commonName}`);
-            const photoImage = await pdfDoc.embedPng(photoBytes);
-            console.log(`PDF: Successfully embedded photo for ${plant.commonName} - ${photo.season}`);
+            
+            // Determine image format and embed accordingly
+            let photoImage;
+            const contentType = photoResponse.headers.get('content-type') || '';
+            const url = photo.url.toLowerCase();
+            
+            if (contentType.includes('png') || url.includes('.png')) {
+              photoImage = await pdfDoc.embedPng(photoBytes);
+              console.log(`PDF: Successfully embedded PNG photo for ${plant.commonName} - ${photo.season}`);
+            } else if (contentType.includes('jpeg') || contentType.includes('jpg') || url.includes('.jpg') || url.includes('.jpeg')) {
+              photoImage = await pdfDoc.embedJpg(photoBytes);
+              console.log(`PDF: Successfully embedded JPEG photo for ${plant.commonName} - ${photo.season}`);
+            } else {
+              // Try JPEG as fallback (most common format)
+              try {
+                photoImage = await pdfDoc.embedJpg(photoBytes);
+                console.log(`PDF: Successfully embedded photo (JPEG fallback) for ${plant.commonName} - ${photo.season}`);
+              } catch (jpegError) {
+                // Try PNG as last resort
+                photoImage = await pdfDoc.embedPng(photoBytes);
+                console.log(`PDF: Successfully embedded photo (PNG fallback) for ${plant.commonName} - ${photo.season}`);
+              }
+            }
             
             // Draw photo with border
             currentPage.drawRectangle({

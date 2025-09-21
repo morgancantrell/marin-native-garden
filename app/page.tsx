@@ -215,7 +215,7 @@ export default function Home() {
                 disabled={isSubmitting}
                 className="w-full bg-green-600 text-white py-2 px-4 rounded-md hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                {isSubmitting ? "⏳ Generating plan… (this may take up to 50 seconds)" : "Generate my garden plan"}
+                {isSubmitting ? "⏳ Generating plan..." : "Generate my garden plan"}
               </button>
             </form>
 
@@ -283,6 +283,13 @@ export default function Home() {
                       <p><strong>Habitat:</strong> Open areas dominated by native grasses and wildflowers, often with scattered oak trees.</p>
                       <p><strong>Ecological Value:</strong> Supports grassland-dependent wildlife and provides important foraging habitat. Native grasses have deep root systems that improve soil health.</p>
                       <p><strong>Range in Marin:</strong> Found in valleys, coastal plains, and open areas throughout Marin County.</p>
+                    </>
+                  )}
+                  {result.region === "Coastal Scrub" && (
+                    <>
+                      <p><strong>Habitat:</strong> Wind-swept coastal areas with salt-tolerant shrubs, grasses, and wildflowers adapted to harsh marine conditions.</p>
+                      <p><strong>Ecological Value:</strong> Provides critical habitat for coastal wildlife including seabirds, shorebirds, and specialized insects. Acts as a buffer protecting inland areas from salt spray and wind.</p>
+                      <p><strong>Range in Marin:</strong> Found along Marin's coastline including Stinson Beach, Bolinas, Point Reyes, and other coastal areas exposed to ocean winds and salt spray.</p>
                     </>
                   )}
                 </div>

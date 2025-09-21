@@ -15,6 +15,13 @@ const geistMono = Geist_Mono({
 export const metadata: Metadata = {
   title: "Marin Native Garden",
   description: "Get personalized native plant recommendations for your Marin County property. Create a thriving native garden with local plants, seasonal photos, and water conservation rebates.",
+  icons: {
+    icon: [
+      { url: '/favicon.svg', type: 'image/svg+xml' },
+      { url: '/favicon-16x16.svg', sizes: '16x16', type: 'image/svg+xml' }
+    ],
+    apple: '/favicon.svg',
+  },
 };
 
 export default function RootLayout({

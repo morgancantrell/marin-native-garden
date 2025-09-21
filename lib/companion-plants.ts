@@ -133,8 +133,23 @@ export function getCompanionGroupsForPlants(recommendedPlants: RecommendedPlant[
       .map(p => p.commonName);
     
     if (remainingPlants.length >= 3) {
+      // Determine community type based on plant characteristics
+      const hasCoastalPlants = remainingPlants.some(p => 
+        p.includes('Coastal') || p.includes('Sagebrush') || p.includes('Coyote Brush')
+      );
+      const hasOakPlants = remainingPlants.some(p => 
+        p.includes('Oak') || p.includes('Toyon') || p.includes('Coffeeberry')
+      );
+      
+      let communityName = "Marin Native Plant Community";
+      if (hasCoastalPlants) {
+        communityName = "Coastal Plant Community";
+      } else if (hasOakPlants) {
+        communityName = "Oak Woodland Community";
+      }
+      
       groups.push({
-        name: "Marin Native Plant Community",
+        name: communityName,
         description: "These plants work together to create a thriving native ecosystem",
         plants: remainingPlants,
         ecologicalBenefits: [
