@@ -1,4 +1,4 @@
-export type PlantCommunity = "Chaparral" | "Oak Woodland" | "Riparian" | "Grassland";
+export type PlantCommunity = "Chaparral" | "Oak Woodland" | "Riparian" | "Grassland" | "Coastal Scrub";
 
 export type Butterfly = {
   commonName: string;

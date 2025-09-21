@@ -207,6 +207,13 @@ function determineRegionHeuristic(city: string): string {
     return 'Riparian';
   }
   
+  // Coastal Scrub areas
+  if (cityLower.includes('stinson beach') || cityLower.includes('bolinas') || 
+      cityLower.includes('point reyes') || cityLower.includes('inverness') || 
+      cityLower.includes('muir beach')) {
+    return 'Coastal Scrub';
+  }
+  
   // Grassland areas
   if (cityLower.includes('napa') || cityLower.includes('sonoma')) {
     return 'Grassland';
