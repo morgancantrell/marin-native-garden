@@ -156,34 +156,58 @@ export async function fetchSeasonalPhotos(scientificName: string): Promise<Seaso
       }
     }
 
-    // Strategy 3: Aggressive winter photo search for specific plants
-    const winterPhotoCount = observations.filter(obs => {
-      if (!obs.observed_on) return false;
-      const season = getSeasonFromDate(obs.observed_on);
-      return season === 'winter';
-    }).length;
+    // Strategy 3: Aggressive seasonal photo search for specific plants
+    const seasonCounts = {
+      spring: observations.filter(obs => {
+        if (!obs.observed_on) return false;
+        const season = getSeasonFromDate(obs.observed_on);
+        return season === 'spring';
+      }).length,
+      summer: observations.filter(obs => {
+        if (!obs.observed_on) return false;
+        const season = getSeasonFromDate(obs.observed_on);
+        return season === 'summer';
+      }).length,
+      fall: observations.filter(obs => {
+        if (!obs.observed_on) return false;
+        const season = getSeasonFromDate(obs.observed_on);
+        return season === 'fall';
+      }).length,
+      winter: observations.filter(obs => {
+        if (!obs.observed_on) return false;
+        const season = getSeasonFromDate(obs.observed_on);
+        return season === 'winter';
+      }).length
+    };
 
-    if (winterPhotoCount < 1 && isPriorityPlant) {
-      console.log(`No winter photos found, trying month-specific winter search...`);
+    // Check for missing seasons and try to find them
+    const missingSeasons = [];
+    if (seasonCounts.spring < 2) missingSeasons.push({ season: 'spring', months: ['03', '04', '05'] });
+    if (seasonCounts.summer < 2) missingSeasons.push({ season: 'summer', months: ['06', '07', '08'] });
+    if (seasonCounts.fall < 2) missingSeasons.push({ season: 'fall', months: ['09', '10', '11'] });
+    if (seasonCounts.winter < 2) missingSeasons.push({ season: 'winter', months: ['12', '01', '02'] });
+
+    if (missingSeasons.length > 0 && isPriorityPlant) {
+      console.log(`Missing seasons: ${missingSeasons.map(s => s.season).join(', ')}, trying month-specific search...`);
       
-      // Try specific winter months (Dec, Jan, Feb) with broader geographic scope
-      const winterMonths = ['12', '01', '02'];
-      for (const month of winterMonths) {
-        const monthUrl = `https://api.inaturalist.org/v1/observations?taxon_name=${encodeURIComponent(scientificName)}&place_id=1&quality_grade=research&per_page=300&order=desc&order_by=created_at&month=${month}`;
-        
-        try {
-          const monthResponse = await makeHttpsRequest(monthUrl);
-          const monthObservations = monthResponse.results || [];
-          console.log(`Strategy 3 (month ${month}): Found ${monthObservations.length} observations`);
+      for (const missingSeason of missingSeasons) {
+        for (const month of missingSeason.months) {
+          const monthUrl = `https://api.inaturalist.org/v1/observations?taxon_name=${encodeURIComponent(scientificName)}&place_id=1&quality_grade=research&per_page=300&order=desc&order_by=created_at&month=${month}`;
           
-          // Add unique observations
-          monthObservations.forEach(obs => {
-            if (!observations.find(existing => existing.id === obs.id)) {
-              observations.push(obs);
-            }
-          });
-        } catch (error) {
-          console.log(`Strategy 3 (month ${month}) failed:`, error);
+          try {
+            const monthResponse = await makeHttpsRequest(monthUrl);
+            const monthObservations = monthResponse.results || [];
+            console.log(`Strategy 3 (${missingSeason.season} month ${month}): Found ${monthObservations.length} observations`);
+            
+            // Add unique observations
+            monthObservations.forEach(obs => {
+              if (!observations.find(existing => existing.id === obs.id)) {
+                observations.push(obs);
+              }
+            });
+          } catch (error) {
+            console.log(`Strategy 3 (${missingSeason.season} month ${month}) failed:`, error);
+          }
         }
       }
       
@@ -238,10 +262,10 @@ export async function fetchSeasonalPhotos(scientificName: string): Promise<Seaso
 
     // Log results
     const seasonsWithPhotos = new Set(photos.map(p => p.season));
-    const missingSeasons = seasons.filter((s: string) => !seasonsWithPhotos.has(s as "spring" | "summer" | "fall" | "winter"));
+    const missingSeasonsLog = seasons.filter((s: string) => !seasonsWithPhotos.has(s as "spring" | "summer" | "fall" | "winter"));
 
-    if (missingSeasons.length > 0) {
-      console.log(`Missing seasons for ${scientificName}: ${missingSeasons.join(', ')} - tried enhanced strategies`);
+    if (missingSeasonsLog.length > 0) {
+      console.log(`Missing seasons for ${scientificName}: ${missingSeasonsLog.join(', ')} - tried enhanced strategies`);
     }
 
     console.log(`Returning ${photos.length} REAL photos for ${scientificName} (${photosBySeason.spring.length} spring, ${photosBySeason.summer.length} summer, ${photosBySeason.fall.length} fall, ${photosBySeason.winter.length} winter available)`);

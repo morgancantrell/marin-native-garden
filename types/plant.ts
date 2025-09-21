@@ -10,6 +10,8 @@ export type Bird = {
   scientificName?: string;
 };
 
+export type SunExposure = "full-sun" | "partial-sun" | "shade" | "any";
+
 export type Plant = {
   scientificName: string;
   commonName: string;
@@ -25,6 +27,7 @@ export type Plant = {
   indigenousUses: string[]; // brief bullet points
   butterflies: Butterfly[]; // up to 3
   birds?: Bird[]; // up to 3
+  sunExposure: SunExposure; // sun exposure requirements
   occurrencePoints?: { lat: number; lng: number }[]; // optional local presence markers
 };
 

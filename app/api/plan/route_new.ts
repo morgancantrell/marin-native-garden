@@ -4,7 +4,6 @@ import { getPlantsForRegion } from '@/lib/plants';
 import { getRebates } from '@/lib/rebates';
 import { fetchSeasonalPhotos } from '@/lib/inaturalist-photos';
 import { getCompanionGroupsForPlants } from '@/lib/companion-plants';
-import { calculateSunExposure } from '@/lib/sun-exposure-calculator';
 import { PDFDocument, rgb, StandardFonts } from 'pdf-lib';
 
 const prisma = new PrismaClient();
@@ -63,7 +62,7 @@ const getWildlifeAssessment = (score: number): string => {
   return "Limited wildlife support";
 };
 
-async function generatePdf(address: string, region: string, waterDistrict: string, plants: any[], rebates: any[], sunExposureData: any): Promise<Uint8Array> {
+async function generatePdf(address: string, region: string, waterDistrict: string, plants: any[], rebates: any[]): Promise<Uint8Array> {
   const pdfDoc = await PDFDocument.create();
   const page = pdfDoc.addPage([612, 792]); // Letter size
   const { width, height } = page.getSize();
@@ -74,29 +73,20 @@ async function generatePdf(address: string, region: string, waterDistrict: strin
   let currentPage = page;
   let yPosition = height - 40;
   
-  // Sophisticated agency color palette - muted earthy tones with single accent
+  // Elegant color palette
   const colors = {
-    // Primary colors - sophisticated neutrals
-    charcoal: rgb(0.20, 0.20, 0.20),        // Deep charcoal for headers
-    slate: rgb(0.35, 0.35, 0.35),           // Medium slate for subtext
-    stone: rgb(0.55, 0.55, 0.55),           // Light stone for body text
-    mist: rgb(0.75, 0.75, 0.75),            // Very light mist for borders
-    
-    // Background colors - clean whites and off-whites
-    white: rgb(1, 1, 1),                    // Pure white
-    cream: rgb(0.98, 0.98, 0.98),           // Subtle cream background
-    paper: rgb(0.96, 0.96, 0.96),           // Paper-like background
-    
-    // Single accent color - sophisticated sage green
-    sage: rgb(0.45, 0.55, 0.45),            // Muted sage green accent
-    
-    // Photo frame colors
-    frame: rgb(0.90, 0.90, 0.90),           // Light frame
-    shadow: rgb(0.85, 0.85, 0.85)           // Subtle shadow
+    primary: rgb(0.15, 0.35, 0.15),      // Deep forest green
+    secondary: rgb(0.25, 0.45, 0.25),    // Medium green
+    accent: rgb(0.4, 0.6, 0.4),          // Light green
+    text: rgb(0.2, 0.2, 0.2),            // Dark gray
+    lightText: rgb(0.4, 0.4, 0.4),       // Medium gray
+    background: rgb(0.98, 0.98, 0.98),   // Off-white
+    white: rgb(1, 1, 1),                 // Pure white
+    border: rgb(0.85, 0.85, 0.85)        // Light gray border
   };
   
   // Helper function to add text with proper spacing
-  const addText = (text: string, x: number, y: number, fontSize: number = 12, isBold: boolean = false, color: any = colors.stone) => {
+  const addText = (text: string, x: number, y: number, fontSize: number = 12, isBold: boolean = false, color: any = colors.text) => {
     const currentFont = isBold ? boldFont : font;
     currentPage.drawText(String(text || ''), {
       x,
@@ -126,9 +116,9 @@ async function generatePdf(address: string, region: string, waterDistrict: strin
       return startY;
     }
     
-    const photoSize = 180; // Increased from 120 to 180 for much larger photos
-    const photosPerRow = 2; // Keep 2x2 grid like web preview
-    const photoSpacing = 30; // Increased spacing for larger photos
+    const photoSize = 60;
+    const photosPerRow = 4;
+    const photoSpacing = 12;
     const totalWidth = (photoSize * photosPerRow) + (photoSpacing * (photosPerRow - 1));
     const startX = (width - totalWidth) / 2;
     
@@ -140,15 +130,15 @@ async function generatePdf(address: string, region: string, waterDistrict: strin
     const uniqueSeasonPhotos = [];
     
     for (const season of seasons) {
-      const seasonPhoto = plant.seasonalPhotos.find((p: any) => p.season === season);
+      const seasonPhoto = plant.seasonalPhotos.find(p => p.season === season);
       if (seasonPhoto) {
         uniqueSeasonPhotos.push(seasonPhoto);
       }
     }
     
-    // Add photos in 2x2 grid (max 4 photos - one per season)
+    // Add photos in rows (max 4 photos - one per season)
     for (let row = 0; row < Math.ceil(uniqueSeasonPhotos.length / photosPerRow); row++) {
-      if (checkNewPage(photoSize + 120)) { // Increased space requirement for larger photos
+      if (checkNewPage(photoSize + 50)) {
         photoY = yPosition;
       }
       
@@ -201,196 +191,178 @@ async function generatePdf(address: string, region: string, waterDistrict: strin
               }
             }
             
-            // Sophisticated photo frame with subtle shadow
-            // Shadow effect
+            // Draw elegant photo frame with subtle shadow
             currentPage.drawRectangle({
-              x: photoX + 3,
-              y: photoY - photoSize - 3,
-              width: photoSize,
-              height: photoSize,
-              color: colors.shadow,
+              x: photoX - 1,
+              y: photoY - photoSize - 1,
+              width: photoSize + 2,
+              height: photoSize + 2,
+              borderColor: colors.border,
+              borderWidth: 1,
             });
             
-            // Clean frame
-            currentPage.drawRectangle({
+            currentPage.drawImage(photoImage, {
               x: photoX,
               y: photoY - photoSize,
               width: photoSize,
               height: photoSize,
-              borderColor: colors.frame,
-              borderWidth: 2,
-              color: colors.white,
             });
             
-            currentPage.drawImage(photoImage, {
-              x: photoX + 2, // Offset for border
-              y: photoY - photoSize + 2,
-              width: photoSize - 4, // Account for border
-              height: photoSize - 4,
-            });
-            
-            // Sophisticated season label
+            // Add elegant season label
             const seasonText = photo.season.charAt(0).toUpperCase() + photo.season.slice(1);
-            const textWidth = boldFont.widthOfTextAtSize(seasonText, 11);
-            
-            // Clean label background
+            const textWidth = boldFont.widthOfTextAtSize(seasonText, 8);
             currentPage.drawRectangle({
-              x: photoX + photoSize/2 - textWidth/2 - 4,
-              y: photoY - photoSize - 25,
-              width: textWidth + 8,
-              height: 16,
-              color: colors.sage,
+              x: photoX + photoSize/2 - textWidth/2 - 3,
+              y: photoY - photoSize - 18,
+              width: textWidth + 6,
+              height: 12,
+              color: colors.primary,
             });
             
             addText(seasonText, 
-              photoX + photoSize/2 - textWidth/2, photoY - photoSize - 15, 11, true, colors.white);
+              photoX + photoSize/2 - textWidth/2, photoY - photoSize - 12, 8, true, colors.white);
           }
           
         } catch (error) {
           console.log(`PDF: Failed to load photo for ${plant.commonName} - ${photo.season}:`, error);
-          // Sophisticated placeholder
+          // Draw elegant placeholder
           currentPage.drawRectangle({
-            x: photoX + 2,
-            y: photoY - photoSize + 2,
-            width: photoSize - 4,
-            height: photoSize - 4,
-            borderColor: colors.frame,
-            borderWidth: 2,
-            color: colors.cream,
+            x: photoX,
+            y: photoY - photoSize,
+            width: photoSize,
+            height: photoSize,
+            borderColor: colors.border,
+            borderWidth: 1,
+            color: colors.background,
           });
-          
-          addText("Photo", photoX + photoSize/2 - 15, photoY - photoSize/2, 12, false, colors.stone);
+          addText("Photo", photoX + photoSize/2 - 12, photoY - photoSize/2, 9, false, colors.lightText);
         }
         
         photoIndex++;
       }
       
-      photoY -= photoSize + 80; // Increased spacing between rows for larger photos
+      photoY -= photoSize + 40; // Move to next row
     }
     
     return photoY;
   };
   
-  // Sophisticated Agency Header Design
-  const headerHeight = 120;
+  // Elegant Header Design
+  const headerHeight = 100;
   
-  // Clean white background with subtle accent line
+  // Main header background with gradient effect
   currentPage.drawRectangle({
     x: 0,
     y: height - headerHeight,
     width: width,
     height: headerHeight,
-    color: colors.white,
+    color: colors.primary,
   });
   
-  // Minimalist accent line - single sophisticated element
+  // Subtle accent line
   currentPage.drawRectangle({
     x: 0,
-    y: height - 3,
+    y: height - headerHeight + 2,
     width: width,
     height: 3,
-    color: colors.sage,
+    color: colors.accent,
   });
   
-  // Sophisticated typography hierarchy
-  addText('MARIN NATIVE GARDEN', 60, height - 45, 32, true, colors.charcoal);
-  addText('LANDSCAPE DESIGN RECOMMENDATIONS', 60, height - 70, 14, false, colors.slate);
+  // Main title with elegant typography
+  addText('MARIN NATIVE GARDEN', 50, height - 35, 28, true, colors.white);
   
-  // Minimalist date and project info - right aligned
+  // Subtitle with refined styling
+  addText('Personalized Native Plant Recommendations', 50, height - 55, 12, false, colors.white);
+  
+  // Date and project info
   const currentDate = new Date().toLocaleDateString('en-US', { 
     year: 'numeric', 
     month: 'long', 
     day: 'numeric' 
   });
-  addText(`Generated ${currentDate}`, width - 200, height - 45, 11, false, colors.stone);
+  addText(`Generated ${currentDate}`, width - 200, height - 35, 10, false, colors.white);
   
-  yPosition = height - headerHeight - 60; // More generous spacing
+  yPosition = height - headerHeight - 30;
   
-  // Minimalist Project Details Section
+  // Project Details Section with elegant card design
   const infoCardY = yPosition;
-  const infoCardHeight = 100;
+  const infoCardHeight = 80;
   
-  // Clean white background with subtle border
+  // Card background with subtle border
   currentPage.drawRectangle({
-    x: 60,
+    x: 40,
     y: infoCardY - infoCardHeight,
-    width: width - 120,
+    width: width - 80,
     height: infoCardHeight,
-    borderColor: colors.mist,
+    borderColor: colors.border,
     borderWidth: 1,
     color: colors.white,
   });
   
-  // Sophisticated section header
-  addText('PROJECT OVERVIEW', 80, infoCardY - 25, 16, true, colors.charcoal);
+  // Card header with accent
+  currentPage.drawRectangle({
+    x: 40,
+    y: infoCardY - 25,
+    width: width - 80,
+    height: 25,
+    color: colors.secondary,
+  });
   
-  // Clean typography layout with generous spacing
-  const leftCol = 80;
+  addText('PROJECT DETAILS', 60, infoCardY - 18, 14, true, colors.white);
+  
+  // Project details in elegant columns
+  const leftCol = 60;
   const rightCol = width / 2 + 20;
-  const lineHeight = 18;
   
-  addText(`Property Address`, leftCol, infoCardY - 50, 10, true, colors.slate);
-  addText(address, leftCol, infoCardY - 65, 12, false, colors.stone);
+  addText(`Property Address`, leftCol, infoCardY - 40, 9, true, colors.lightText);
+  addText(address, leftCol, infoCardY - 55, 11, false, colors.text);
   
-  addText(`Plant Community`, rightCol, infoCardY - 50, 10, true, colors.slate);
-  addText(region, rightCol, infoCardY - 65, 12, false, colors.stone);
+  addText(`Plant Community`, rightCol, infoCardY - 40, 9, true, colors.lightText);
+  addText(region, rightCol, infoCardY - 55, 11, false, colors.text);
   
-  addText(`Water District`, leftCol, infoCardY - 85, 10, true, colors.slate);
-  addText(waterDistrict, leftCol, infoCardY - 100, 12, false, colors.stone);
+  addText(`Water District`, leftCol, infoCardY - 70, 9, true, colors.lightText);
+  addText(waterDistrict, leftCol, infoCardY - 85, 11, false, colors.text);
   
-  addText(`Sun Exposure`, rightCol, infoCardY - 85, 10, true, colors.slate);
-  addText(`${sunExposureData.hours} hours (${sunExposureData.level})`, rightCol, infoCardY - 100, 12, false, colors.stone);
+  yPosition = infoCardY - infoCardHeight - 40;
   
-  yPosition = infoCardY - infoCardHeight - 80; // Generous spacing
-  
-  // Sophisticated Plants Section Header
-  addText('PLANT RECOMMENDATIONS', 80, yPosition, 24, true, colors.charcoal);
-  addText('Curated native species for your landscape', 80, yPosition - 25, 12, false, colors.slate);
-  yPosition -= 60; // Generous spacing
+  // Plants Section with elegant styling
+  addText('RECOMMENDED NATIVE PLANTS', 50, yPosition, 20, true, colors.primary);
+  yPosition -= 30;
   
   for (let i = 0; i < plants.length; i++) {
     const plant = plants[i];
     
     // Check if we need a new page
-    checkNewPage(400); // Increased for larger photos
+    checkNewPage(250);
     
-    // Sophisticated Plant Card Design
+    // Elegant plant card design
     const cardY = yPosition;
-    const cardHeight = 350; // Increased for spacious design
+    const cardHeight = 180;
     
-    // Clean white card with subtle border
+    // Card background with subtle styling
     currentPage.drawRectangle({
-      x: 60,
+      x: 40,
       y: cardY - cardHeight,
-      width: width - 120,
+      width: width - 80,
       height: cardHeight,
-      borderColor: colors.mist,
+      borderColor: colors.border,
       borderWidth: 1,
       color: colors.white,
     });
     
-    // Minimalist plant header with accent line
+    // Plant header with elegant styling
     currentPage.drawRectangle({
-      x: 60,
-      y: cardY - 40,
-      width: width - 120,
-      height: 40,
-      color: colors.white,
+      x: 40,
+      y: cardY - 35,
+      width: width - 80,
+      height: 35,
+      color: colors.primary,
     });
     
-    // Sophisticated accent line
-    currentPage.drawRectangle({
-      x: 60,
-      y: cardY - 3,
-      width: 60,
-      height: 3,
-      color: colors.sage,
-    });
-    
-    // Clean typography hierarchy
-    addText(`${String(i + 1).padStart(2, '0')}`, 80, cardY - 20, 14, true, colors.sage);
-    addText(plant.commonName.toUpperCase(), 120, cardY - 20, 18, true, colors.charcoal);
-    addText(`(${plant.scientificName})`, 120, cardY - 35, 11, false, colors.slate);
+    // Plant number and name
+    addText(`${String(i + 1).padStart(2, '0')}`, 60, cardY - 20, 12, true, colors.accent);
+    addText(plant.commonName.toUpperCase(), 90, cardY - 20, 16, true, colors.white);
+    addText(`(${plant.scientificName})`, 90, cardY - 35, 9, false, colors.white);
     
     // Plant details with elegant typography
     let detailY = cardY - 55;
@@ -440,14 +412,14 @@ async function generatePdf(address: string, region: string, waterDistrict: strin
     
     // Add plant photos
     yPosition = await addPlantPhotos(plant, detailY - 20);
-    yPosition -= 80; // Generous spacing between plants for sophisticated layout
+    yPosition -= 30; // Elegant spacing between plants
   }
   
   // Rebates Section with elegant styling
   if (rebates && rebates.length > 0) {
     checkNewPage(150);
     
-    addText('AVAILABLE REBATES & INCENTIVES', 50, yPosition, 20, true, colors.charcoal);
+    addText('AVAILABLE REBATES & INCENTIVES', 50, yPosition, 20, true, colors.primary);
     yPosition -= 30;
     
     rebates.forEach((rebate, index) => {
@@ -457,13 +429,13 @@ async function generatePdf(address: string, region: string, waterDistrict: strin
       const rebateCardY = yPosition;
       const cardHeight = 80;
       
-      // Card background with highlight
+      // Card background
       currentPage.drawRectangle({
         x: 40,
         y: rebateCardY - cardHeight,
         width: width - 80,
         height: cardHeight,
-        borderColor: colors.mist,
+        borderColor: colors.border,
         borderWidth: 1,
         color: colors.white,
       });
@@ -474,28 +446,29 @@ async function generatePdf(address: string, region: string, waterDistrict: strin
         y: rebateCardY - 30,
         width: width - 80,
         height: 30,
-        color: colors.sage,
+        color: colors.secondary,
       });
       
-      addText(rebate.title.toUpperCase(), 60, rebateCardY - 20, 14, true, colors.white);
+      addText(rebate.name.toUpperCase(), 60, rebateCardY - 20, 14, true, colors.white);
       
       // Rebate amount badge
-      const amountText = `${rebate.amount}`;
+      const amountText = `$${rebate.amount}`;
       const amountWidth = boldFont.widthOfTextAtSize(amountText, 12);
       currentPage.drawRectangle({
         x: width - 80 - amountWidth - 20,
         y: rebateCardY - 25,
         width: amountWidth + 16,
         height: 20,
-        color: colors.sage,
+        color: colors.accent,
       });
       addText(amountText, width - 80 - amountWidth - 12, rebateCardY - 18, 12, true, colors.white);
       
       // Rebate details
-      addText(rebate.requirements, 60, rebateCardY - 45, 10, false, colors.stone);
+      addText(rebate.summary, 60, rebateCardY - 45, 10, false, colors.text);
+      addText(`Requirements: ${rebate.requirements}`, 60, rebateCardY - 60, 9, false, colors.lightText);
       
       if (rebate.link) {
-        addText(`Learn more: ${rebate.link}`, 60, rebateCardY - 60, 9, false, colors.slate);
+        addText(`Learn more: ${rebate.link}`, 60, rebateCardY - 75, 9, false, colors.primary);
       }
       
       yPosition = rebateCardY - cardHeight - 20;
@@ -554,19 +527,15 @@ export async function POST(request: NextRequest) {
     
     console.log(`Geocoded to: ${city} (${latitude}, ${longitude})`);
     
-    // Calculate sun exposure for the address
-    const sunExposureData = calculateSunExposure(address, latitude, longitude);
-    console.log(`Sun exposure: ${sunExposureData.hours} hours (${sunExposureData.level}) - ${sunExposureData.reason}`);
-    
     // Determine plant community and water district
     const region = determineRegionHeuristic(city);
     const waterDistrict = determineWaterDistrict(city);
     
     console.log(`Determined region: ${region}, water district: ${waterDistrict}`);
     
-    // Get plants for the region, filtered by sun exposure
-    const plants = getPlantsForRegion(region, sunExposureData.level);
-    console.log(`Found ${plants.length} plants for ${region} with ${sunExposureData.level} sun exposure`);
+    // Get plants for the region
+    const plants = getPlantsForRegion(region);
+    console.log(`Found ${plants.length} plants for ${region}`);
     
     // Get seasonal photos for plants
     console.log('Fetching seasonal photos...');
@@ -590,36 +559,30 @@ export async function POST(request: NextRequest) {
     
     // Generate PDF
     console.log('Generating PDF...');
-    const pdfBytes = await generatePdf(address, region, waterDistrict, plantsWithPhotos, rebates, sunExposureData);
+    const pdfBytes = await generatePdf(address, region, waterDistrict, plantsWithPhotos, rebates);
     console.log('PDF generated successfully');
     
-    // Upload PDF to Vercel Blob (optional - continue even if this fails)
-    let pdfUrl = '';
-    try {
-      const formData = new FormData();
-      const pdfBlob = new Blob([pdfBytes], { type: 'application/pdf' });
-      formData.append('file', pdfBlob, `marin-garden-plan-${Date.now()}.pdf`);
-      
-      const uploadResponse = await fetch(`https://api.vercel.com/v1/blob?filename=marin-garden-plan-${Date.now()}.pdf`, {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${process.env.BLOB_READ_WRITE_TOKEN}`,
-        },
-        body: formData,
-      });
-      
-      if (!uploadResponse.ok) {
-        console.log(`PDF upload failed: ${uploadResponse.status} - continuing without PDF URL`);
-      } else {
-        const uploadData = await uploadResponse.json();
-        pdfUrl = uploadData.url;
-        console.log('PDF uploaded to Vercel Blob');
-      }
-    } catch (uploadError) {
-      console.log('PDF upload error:', uploadError.message);
+    // Upload PDF to Vercel Blob
+    const formData = new FormData();
+    const pdfBlob = new Blob([pdfBytes], { type: 'application/pdf' });
+    formData.append('file', pdfBlob, `marin-garden-plan-${Date.now()}.pdf`);
+    
+    const uploadResponse = await fetch(`https://api.vercel.com/v1/blob?filename=marin-garden-plan-${Date.now()}.pdf`, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${process.env.BLOB_READ_WRITE_TOKEN}`,
+      },
+      body: formData,
+    });
+    
+    if (!uploadResponse.ok) {
+      throw new Error(`PDF upload failed: ${uploadResponse.status}`);
     }
     
-    // Send email with PDF attachment (optional - continue even if this fails)
+    const uploadData = await uploadResponse.json();
+    console.log('PDF uploaded to Vercel Blob');
+    
+    // Send email with PDF attachment
     console.log('Sending email...');
     let emailStatus = 'not attempted';
     let emailError = null;
@@ -651,8 +614,6 @@ export async function POST(request: NextRequest) {
                 <p><strong>Address:</strong> ${address}</p>
                 <p><strong>Plant Community:</strong> ${region}</p>
                 <p><strong>Water District:</strong> ${waterDistrict}</p>
-                <p><strong>Sun Exposure:</strong> ${sunExposureData.hours} hours per day (${sunExposureData.level})</p>
-                <p style="color: #666; font-size: 14px; margin-top: 10px;"><em>${sunExposureData.reason}</em></p>
               </div>
               
               <div style="background-color: #e8f5e8; padding: 20px; border-radius: 8px; margin: 20px 0;">
@@ -672,14 +633,14 @@ export async function POST(request: NextRequest) {
               </p>
             </div>
           `,
-          attachments: pdfUrl ? [
+          attachments: [
             {
               filename: `marin-garden-plan-${address.replace(/[^a-zA-Z0-9]/g, '-')}.pdf`,
               content: Buffer.from(pdfBytes).toString('base64'),
               type: 'application/pdf',
               disposition: 'attachment'
             }
-          ] : []
+          ]
         }),
       });
       
@@ -698,7 +659,7 @@ export async function POST(request: NextRequest) {
       console.log('Email error:', error);
     }
     
-    // Save to database (optional - continue even if this fails)
+    // Save to database
     try {
       await prisma.submission.create({
         data: {
@@ -708,7 +669,7 @@ export async function POST(request: NextRequest) {
           waterDistrict,
           plants: JSON.stringify(plantsWithPhotos),
           rebates: JSON.stringify(rebates),
-          pdfUrl: pdfUrl,
+          pdfUrl: uploadData.url,
           emailStatus,
           emailError,
         },
@@ -724,7 +685,7 @@ export async function POST(request: NextRequest) {
       waterDistrict,
       plants: plantsWithPhotos,
       rebates,
-      pdfUrl: pdfUrl,
+      pdfUrl: uploadData.url,
       emailStatus,
       emailError,
     });

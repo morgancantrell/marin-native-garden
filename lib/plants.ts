@@ -1,9 +1,10 @@
-import type { Plant, PlantCommunity } from "@/types/plant";
+import type { Plant, PlantCommunity, SunExposure } from "@/types/plant";
+import { addSunExposureToPlants } from "./plant-sun-exposure";
 
 // Note: This is a curated starter dataset for Marin County natives.
 // Occurrence points are optional; when present they enable 2km filtering.
 
-export const PLANTS: Plant[] = [
+const PLANTS_WITHOUT_SUN_EXPOSURE: Omit<Plant, 'sunExposure'>[] = [
   {
     scientificName: "Quercus agrifolia",
     commonName: "Coast Live Oak",
@@ -971,8 +972,21 @@ export const PLANTS: Plant[] = [
   },
 ];
 
-export function getPlantsForRegion(region: string): Plant[] {
-  return PLANTS.filter(plant => 
+export const PLANTS: Plant[] = addSunExposureToPlants(PLANTS_WITHOUT_SUN_EXPOSURE);
+
+export function getPlantsForRegion(region: string, sunExposure?: SunExposure): Plant[] {
+  // For now, let's just return plants for the region without sun exposure filtering
+  // to see the new PDF design
+  let filteredPlants = PLANTS.filter(plant => 
     plant.communities.includes(region as PlantCommunity)
-  ).slice(0, 10); // Return top 10 plants (reduced from 15)
+  );
+  
+  // If no plants found for the region, get some adaptable plants
+  if (filteredPlants.length === 0) {
+    filteredPlants = PLANTS.filter(plant => 
+      plant.communities.length > 1 // Plants in multiple communities are more adaptable
+    );
+  }
+  
+  return filteredPlants.slice(0, 10); // Return top 10 plants
 }

@@ -250,6 +250,7 @@ export default function Home() {
                 <div className="mt-2 text-sm text-gray-900">
                   <div><span className="font-medium">Region:</span> {result.region}</div>
                   <div><span className="font-medium">Water District:</span> {result.waterDistrict}</div>
+                  <div><span className="font-medium">Sun Exposure:</span> {result.sunExposure?.hours || 'N/A'} hours per day ({result.sunExposure?.level || 'N/A'})</div>
                 </div>
               </div>
 
