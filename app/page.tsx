@@ -175,13 +175,7 @@ export default function Home() {
           <h1 className="text-2xl md:text-4xl font-bold text-gray-900 mb-2">
             Marin Native Garden Planner
           </h1>
-          <p className="text-sm md:text-lg text-gray-900 mb-4">
-            Get personalized native plant recommendations for your Marin County property
-          </p>
-          <h2 className="text-lg md:text-xl font-semibold text-gray-800 mb-2">
-            Create Your Sustainable Native Garden
-          </h2>
-          <p className="text-sm md:text-base text-gray-700">
+          <p className="text-sm md:text-lg text-gray-700">
             Discover California native plants perfect for your Marin County landscape, complete with seasonal photos, growth visualizations, and water conservation rebates.
           </p>
         </div>
