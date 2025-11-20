@@ -13,10 +13,10 @@ const nextConfig = {
         source: '/:path*',
         headers: [
           {
-            // Allow embedding from Ecwid and same origin
-            // Using CSP frame-ancestors instead of X-Frame-Options for better control
+            // Allow embedding from any origin (for Ecwid compatibility)
+            // You can restrict this later to specific domains if needed
             key: 'Content-Security-Policy',
-            value: "frame-ancestors 'self' https://*.ecwid.com https://*.ecwid.net https://ecwid.com;",
+            value: "frame-ancestors *;",
           },
         ],
       },
