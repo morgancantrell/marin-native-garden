@@ -13,14 +13,10 @@ const nextConfig = {
         source: '/:path*',
         headers: [
           {
-            // Allow embedding in iframes (required for Ecwid)
-            key: 'X-Frame-Options',
-            value: 'SAMEORIGIN', // Change to 'ALLOWALL' if you want to allow any origin
-          },
-          {
-            // Optional: Allow specific Ecwid domains
+            // Allow embedding from Ecwid and same origin
+            // Using CSP frame-ancestors instead of X-Frame-Options for better control
             key: 'Content-Security-Policy',
-            value: "frame-ancestors 'self' https://*.ecwid.com https://*.ecwid.net;",
+            value: "frame-ancestors 'self' https://*.ecwid.com https://*.ecwid.net https://ecwid.com;",
           },
         ],
       },
