@@ -669,6 +669,10 @@ export async function POST(request: NextRequest) {
     
     // Send email with PDF attachment (optional - continue even if this fails)
     console.log('Sending email...');
+    const fromEmail = process.env.RESEND_FROM_EMAIL || 'Marin Native Garden <onboarding@resend.dev>';
+    console.log('Using from email:', fromEmail);
+    console.log('RESEND_FROM_EMAIL env var:', process.env.RESEND_FROM_EMAIL ? 'SET' : 'NOT SET');
+    
     let emailStatus = 'not attempted';
     let emailError = null;
     
@@ -686,7 +690,7 @@ export async function POST(request: NextRequest) {
         },
         agent: agent,
         body: JSON.stringify({
-          from: 'Marin Native Garden <onboarding@resend.dev>',
+          from: fromEmail,
           to: [email],
           subject: `Your Marin Native Garden Plan - ${address}`,
           html: `
